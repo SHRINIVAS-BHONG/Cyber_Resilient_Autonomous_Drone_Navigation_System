@@ -1,0 +1,15 @@
+[
+  "gps_nis",
+  "gps_pos_residual_norm",
+  "gps_vel_residual_norm",
+  "imu_accel_norm_diff",
+  "imu_accel_var",
+  "imu_gyro_var",
+  "lidar_nis",
+  "lidar_residual_z",
+  "vision_gps_discrepancy",
+  "vision_lidar_z_discrepancy",
+  "accel_kinematic_consistency",
+  "consecutive_anomalies",
+  "sensor_trust_composite"
+]

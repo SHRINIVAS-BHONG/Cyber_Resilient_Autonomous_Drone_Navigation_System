@@ -1,0 +1,90 @@
+{
+  "model_type": "RandomForestClassifier",
+  "num_test_samples": 2400,
+  "overall_accuracy": 0.9996,
+  "macro_precision": 0.9996,
+  "macro_recall": 0.9996,
+  "macro_f1": 0.9996,
+  "inference_latency_ms": 0.019,
+  "throughput_hz": 54044.3,
+  "per_class_metrics": {
+    "NORMAL": {
+      "precision": 0.9983,
+      "recall": 1.0,
+      "f1_score": 0.9991,
+      "support": 580
+    },
+    "GPS_SPOOFING": {
+      "precision": 1.0,
+      "recall": 0.9983,
+      "f1_score": 0.9991,
+      "support": 588
+    },
+    "IMU_MANIPULATION": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 610
+    },
+    "LIDAR_CORRUPTION": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "support": 622
+    }
+  },
+  "top_features": [
+    {
+      "feature": "gps_vel_residual_norm",
+      "importance": 0.1436
+    },
+    {
+      "feature": "imu_gyro_var",
+      "importance": 0.1181
+    },
+    {
+      "feature": "lidar_nis",
+      "importance": 0.1169
+    },
+    {
+      "feature": "lidar_residual_z",
+      "importance": 0.1114
+    },
+    {
+      "feature": "imu_accel_norm_diff",
+      "importance": 0.1047
+    },
+    {
+      "feature": "imu_accel_var",
+      "importance": 0.0953
+    },
+    {
+      "feature": "vision_lidar_z_discrepancy",
+      "importance": 0.0779
+    },
+    {
+      "feature": "sensor_trust_composite",
+      "importance": 0.0766
+    },
+    {
+      "feature": "consecutive_anomalies",
+      "importance": 0.0427
+    },
+    {
+      "feature": "gps_nis",
+      "importance": 0.0346
+    },
+    {
+      "feature": "vision_gps_discrepancy",
+      "importance": 0.0333
+    },
+    {
+      "feature": "gps_pos_residual_norm",
+      "importance": 0.027
+    },
+    {
+      "feature": "accel_kinematic_consistency",
+      "importance": 0.0179
+    }
+  ]
+}
