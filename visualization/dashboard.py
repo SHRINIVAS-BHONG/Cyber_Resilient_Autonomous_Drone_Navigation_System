@@ -344,7 +344,7 @@ else:
                     np.linalg.norm(gps_pos - vision_pos),
                     abs(vision_pos[2] - lidar_z),
                     0.05,
-                    det_res["consecutive_anomalies"],
+                    det_res.get("consecutive_anomalies", 0),
                     res_policy["trust_scores"]["gps"]
                 ]])
                 scaled_feats = ml_scaler.transform(features)
@@ -362,7 +362,7 @@ else:
                 "meas_gps_x": gps_pos[0], "meas_gps_y": gps_pos[1], "meas_gps_z": gps_pos[2],
                 "est_x": est_state["position"][0], "est_y": est_state["position"][1], "est_z": est_state["position"][2],
                 "gps_nis": gps_nis,
-                "attack_state": det_res["state"].value,
+                "attack_state": det_res["state"] if isinstance(det_res["state"], str) else det_res["state"].value,
                 "risk_score": det_res["risk_score"],
                 "nav_mode": res_policy["navigation_mode"],
                 "gps_trust": res_policy["trust_scores"]["gps"],

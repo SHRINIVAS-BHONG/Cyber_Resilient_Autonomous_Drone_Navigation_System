@@ -105,6 +105,7 @@ class ResidualDetectorEngine:
             "is_anomaly": is_alarm,
             "confidence": confidence,
             "risk_score": risk_score,
+            "consecutive_anomalies": int(self.suspicious_counters.get(sensor_name, 0)),
             "compromised_sensors": list(self.compromised_sensors),
         }
 

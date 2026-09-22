@@ -105,6 +105,19 @@ class ResilienceManagerEngine:
             "speed_factor": self.speed_factor,
             "active_sensors": active_sensors,
             "isolated_sensors": list(self.isolated_sensors),
+            "quarantined_sensors": list(self.isolated_sensors),
             "trust_scores": dict(self.sensor_trust),
             "is_degraded": self.current_navigation_mode != NavigationMode.NORMAL_MISSION,
         }
+
+    def update_sensor_residual(
+        self,
+        sensor_name: str,
+        nis: float,
+        gate_threshold: float = 16.27
+    ) -> Dict[str, any]:
+        """Convenience method to evaluate resilience policy from residual NIS."""
+        is_anomaly = float(nis) > gate_threshold
+        self.update_sensor_health(sensor_name, is_anomaly=is_anomaly)
+        attack_status = "ATTACK_CONFIRMED" if len(self.isolated_sensors) > 0 else "NORMAL"
+        return self.evaluate_resilience_policy(attack_status, list(self.isolated_sensors))
