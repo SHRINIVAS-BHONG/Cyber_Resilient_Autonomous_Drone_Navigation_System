@@ -79,7 +79,15 @@ def generate_launch_description():
         output="screen"
     )
 
-    # 8. PX4 Offboard Controller Node
+    # 8. Machine Learning Attack Detector Node
+    ml_detector_node = Node(
+        package="ml_detector",
+        executable="ml_detector_node",
+        name="ml_detector_node",
+        output="screen"
+    )
+
+    # 9. PX4 Offboard Controller Node
     px4_controller_node = Node(
         package="px4_controller",
         executable="px4_controller_node",
@@ -95,7 +103,9 @@ def generate_launch_description():
         sensor_bridge_node,
         state_estimator_node,
         residual_detector_node,
+        ml_detector_node,
         resilience_manager_node,
         path_planner_node,
         px4_controller_node
     ])
+
