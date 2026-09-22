@@ -1,0 +1,114 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="cyber_drone_world">
+    <!-- Physics engine settings -->
+    <physics name="1ms" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <gravity>0 0 -9.80665</gravity>
+    </physics>
+
+    <!-- Global Sun Light -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- Ground Plane -->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <!-- Home Takeoff Pad -->
+    <model name="home_landing_pad">
+      <static>true</static>
+      <pose>0 0 0.01 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>2.0</radius>
+              <length>0.02</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.6 0.2 1</ambient>
+            <diffuse>0.1 0.8 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Safe Alternate Landing Pad (for Resilience Failsafe) -->
+    <model name="emergency_safe_pad">
+      <static>true</static>
+      <pose>20 15 0.01 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>2.5</radius>
+              <length>0.02</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.8 0.6 0.1 1</ambient>
+            <diffuse>0.9 0.7 0.1 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Physical Obstacle 1: Tower -->
+    <model name="obstacle_tower_1">
+      <static>true</static>
+      <pose>8 5 6 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>3.0 3.0 12.0</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>3.0 3.0 12.0</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Physical Obstacle 2: Building -->
+    <model name="obstacle_building_2">
+      <static>true</static>
+      <pose>-10 8 7.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>5.0 4.0 15.0</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>5.0 4.0 15.0</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.5 1</ambient>
+            <diffuse>0.4 0.4 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>
