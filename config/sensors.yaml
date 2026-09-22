@@ -1,0 +1,35 @@
+# Sensor configuration and noise characteristics
+sensors:
+  imu:
+    topic: "/sensor/imu"
+    rate_hz: 100.0
+    gyro_noise_density: 0.0003394     # rad/s/sqrt(Hz)
+    accel_noise_density: 0.004        # m/s^2/sqrt(Hz)
+    gyro_random_walk: 0.000038785     # rad/s^2/sqrt(Hz)
+    accel_random_walk: 0.006          # m/s^3/sqrt(Hz)
+
+  gps:
+    topic: "/sensor/gps"
+    rate_hz: 10.0
+    horizontal_accuracy: 0.5          # meters (1-sigma)
+    vertical_accuracy: 0.8            # meters (1-sigma)
+    velocity_accuracy: 0.1            # m/s (1-sigma)
+    timeout_sec: 0.5
+
+  lidar:
+    topic: "/sensor/lidar"
+    rate_hz: 20.0
+    min_range: 0.2                    # meters
+    max_range: 30.0                   # meters
+    noise_std: 0.03                   # meters
+
+  barometer:
+    topic: "/sensor/barometer"
+    rate_hz: 50.0
+    noise_std: 0.2                    # meters
+
+  vision_pose:
+    topic: "/sensor/vision_pose"
+    rate_hz: 30.0
+    position_noise_std: 0.05          # meters
+    orientation_noise_std: 0.02       # rad

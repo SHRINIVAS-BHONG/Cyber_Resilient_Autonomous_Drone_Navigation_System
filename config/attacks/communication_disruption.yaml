@@ -1,0 +1,15 @@
+# Attack Scenario: Communication Disruption & DoS
+attack:
+  name: "DDS Network Latency & Packet Drop"
+  target_sensor: "communication"
+  type: "communication_disruption"
+  enabled: true
+  start_time_sec: 50.0
+  duration_sec: 20.0
+
+  parameters:
+    packet_loss_rate: 0.40   # 40% packet drops
+    latency_ms: 650.0        # 650ms injected transport delay
+    jitter_ms: 120.0
+    burst_drop_interval_sec: 4.0
+    burst_duration_sec: 1.5

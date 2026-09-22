@@ -1,0 +1,22 @@
+# Cyber Attack Detection Parameters
+detector:
+  residual_detector:
+    # Chi-square 99% threshold for 3-DOF position innovation
+    nis_warning_threshold: 11.34
+    # Chi-square 99.9% threshold for 3-DOF position innovation
+    nis_alarm_threshold: 16.27
+
+    # Sliding window & hysteresis
+    window_size: 15
+    consecutive_alarms_to_confirm: 5
+    recovery_samples_to_clear: 20
+
+    # Sensor rate validation
+    max_message_delay_sec: 0.25
+    packet_loss_warning_threshold: 0.15 # 15% packet loss
+    packet_loss_alarm_threshold: 0.30   # 30% packet loss
+
+  ml_detector:
+    model_path: "ml/models/random_forest_detector.joblib"
+    confidence_threshold: 0.75
+    feature_window_size: 10

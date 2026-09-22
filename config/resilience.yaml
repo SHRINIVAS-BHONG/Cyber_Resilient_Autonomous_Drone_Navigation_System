@@ -1,0 +1,39 @@
+# Resilience and Recovery Policies
+resilience:
+  trust_scoring:
+    initial_score: 1.0
+    min_score: 0.0
+    max_score: 1.0
+    penalty_per_anomaly: 0.25
+    reward_per_normal: 0.05
+    quarantine_threshold: 0.35
+    recovery_threshold: 0.85
+
+  modes:
+    # Available flight safety modes:
+    # - NORMAL_MISSION
+    # - DEGRADED_OPTICAL_LIDAR
+    # - HOLD_POSITION
+    # - SAFE_RETURN_TO_BASE
+    # - EMERGENCY_LANDING
+    default_mode: "NORMAL_MISSION"
+    min_confidence_to_navigate: 0.40
+
+  policies:
+    gps_spoofing:
+      action: "ISOLATE_GPS_AND_FALLBACK"
+      fallback_sensors: ["vision_pose", "lidar", "imu"]
+      target_mode: "DEGRADED_OPTICAL_LIDAR"
+      speed_reduction_factor: 0.6
+
+    imu_manipulation:
+      action: "INCREASE_PROCESS_NOISE_AND_ISOLATE"
+      target_mode: "HOLD_POSITION"
+
+    communication_disruption:
+      action: "EXECUTE_PRECOMPUTED_SAFE_PATH"
+      target_mode: "SAFE_RETURN_TO_BASE"
+
+    multi_sensor_compromise:
+      action: "TRIGGER_EMERGENCY_LANDING"
+      target_mode: "EMERGENCY_LANDING"

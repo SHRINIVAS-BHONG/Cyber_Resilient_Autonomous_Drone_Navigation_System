@@ -1,0 +1,23 @@
+# Path Planning Configuration
+planner:
+  algorithm: "A_STAR"
+  grid_resolution: 0.5           # meters per grid cell
+  map_bounds:
+    x_min: -50.0
+    x_max: 50.0
+    y_min: -50.0
+    y_max: 50.0
+    z_min: 0.0
+    z_max: 30.0
+
+  safety:
+    drone_radius: 0.6            # meters
+    obstacle_inflation_radius: 1.5 # meters
+    max_normal_velocity: 5.0     # m/s
+    max_safe_velocity: 2.0       # m/s (under degraded mode)
+
+  cost_weights:
+    distance_weight: 1.0
+    obstacle_proximity_weight: 3.5
+    uncertainty_weight: 4.0
+    cyber_risk_weight: 8.0

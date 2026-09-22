@@ -1,0 +1,13 @@
+# Attack Scenario: LiDAR Range Corruption
+attack:
+  name: "LiDAR Altitude Compression & Noise Corruption"
+  target_sensor: "lidar"
+  type: "lidar_corruption"
+  enabled: true
+  start_time_sec: 30.0
+  duration_sec: 25.0
+
+  parameters:
+    scale_factor: 0.65       # Fake reading makes obstacles/ground appear closer
+    offset: -1.5             # meters
+    drop_probability: 0.20   # 20% random beam drops

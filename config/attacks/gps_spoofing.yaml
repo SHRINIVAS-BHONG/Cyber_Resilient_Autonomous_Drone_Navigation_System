@@ -1,0 +1,22 @@
+# Attack Scenario: GPS Spoofing
+attack:
+  name: "GPS Position Drift & Step Spoofing"
+  target_sensor: "gps"
+  type: "gps_spoofing"
+  enabled: true
+  start_time_sec: 25.0
+  duration_sec: 35.0
+
+  parameters:
+    # Mode: 'drift' (gradual ramp) or 'jump' (instant offset)
+    mode: "drift"
+    ramp_duration_sec: 5.0
+    position_offset:
+      x: 18.0    # meters East
+      y: -12.0   # meters North
+      z: 0.0     # meters Down
+    velocity_offset:
+      vx: 1.5    # m/s
+      vy: -1.0
+      vz: 0.0
+    noise_variance_multiplier: 1.2
