@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # 1. Bridge between PX4 SITL and ROS 2
+  micro-xrce-agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: drone_xrce_agent
+    restart: unless-stopped
+    command: MicroXRCEAgent udp4 -p 8888
+    ports:
+      - "8888:8888/udp"
+    networks:
+      - drone-net
+
+  # 2. ROS 2 Brain (State Estimator, Attack Simulator, Residual Detector, Resilience Manager)
+  ros2-brain:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: drone_ros2_brain
+    restart: unless-stopped
+    depends_on:
+      - micro-xrce-agent
+    volumes:
+      - ../ros2_ws:/workspace/cyber_drone/ros2_ws
+      - ../config:/workspace/cyber_drone/config
+      - ../ml:/workspace/cyber_drone/ml
+      - ../reports:/workspace/cyber_drone/reports
+      - ../visualization:/workspace/cyber_drone/visualization
+      - ../tests:/workspace/cyber_drone/tests
+    environment:
+      - ROS_DOMAIN_ID=0
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
+    command: bash
+    networks:
+      - drone-net
+
+  # 3. Web Telemetry Dashboard & Remote Control Interface
+  web-telemetry:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: drone_web_telemetry
+    restart: unless-stopped
+    ports:
+      - "8501:8501" # Streamlit Dashboard
+      - "8000:8000" # FastAPI / WebSockets Telemetry API
+    volumes:
+      - ../visualization:/workspace/cyber_drone/visualization
+      - ../reports:/workspace/cyber_drone/reports
+      - ../config:/workspace/cyber_drone/config
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: streamlit run /workspace/cyber_drone/visualization/dashboard.py --server.port=8501 --server.address=0.0.0.0
+    networks:
+      - drone-net
+
+networks:
+  drone-net:
+    driver: bridge

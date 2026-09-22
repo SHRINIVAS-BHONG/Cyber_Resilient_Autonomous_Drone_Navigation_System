@@ -1,0 +1,9 @@
+.git
+.gitignore
+*.docx
+*.pyc
+__pycache__
+.pytest_cache
+*.log
+.venv
+venv
