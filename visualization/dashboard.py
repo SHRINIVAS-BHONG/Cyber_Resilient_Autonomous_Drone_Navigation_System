@@ -6,6 +6,7 @@ cyber-attack injection triggers, 3D flight trajectory reconstruction,
 innovation residual analysis, sensor trust scoring, and resilience metrics.
 """
 
+import json
 import sys
 from pathlib import Path
 import numpy as np
@@ -265,6 +266,19 @@ with tab4:
     m3.metric("Raw GPS RMSE", f"{np.sqrt(np.mean(pos_error_raw**2)):.2f} m")
     m4.metric("Resilient EKF RMSE", f"{np.sqrt(np.mean(pos_error_ekf**2)):.2f} m")
 
+    st.markdown("---")
+    st.subheader("📋 System Benchmark Suite Evaluation (5 Critical Attack Scenarios)")
+    benchmark_file = root_dir / "reports" / "experiment_results" / "benchmark_summary.json"
+    if benchmark_file.exists():
+        with open(benchmark_file, "r", encoding="utf-8") as bf:
+            bdata = json.load(bf)
+        bdf = pd.DataFrame(bdata)
+        bdf.columns = ["Scenario", "Raw RMSE (m)", "Resilient RMSE (m)", "Improvement (%)", "TTD (s)", "TTC (s)", "Final Mode"]
+        st.dataframe(bdf, use_container_width=True)
+    else:
+        st.info("Run `python scripts/run_benchmarks.py` to generate the complete scenario benchmark suite.")
+
+    st.markdown("---")
     st.download_button(
         label="📥 Download Telemetry Log (CSV)",
         data=df.to_csv(index=False),

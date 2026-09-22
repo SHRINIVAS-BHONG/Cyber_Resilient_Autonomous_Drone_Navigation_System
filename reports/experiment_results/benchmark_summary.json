@@ -1,0 +1,47 @@
+[
+  {
+    "scenario": "Scenario 01: Baseline Normal Flight",
+    "raw_rmse_m": 0.335,
+    "resilient_rmse_m": 0.132,
+    "rmse_improvement_pct": 60.6,
+    "time_to_detect_s": 0.0,
+    "time_to_contain_s": 0.0,
+    "final_nav_mode": "NORMAL_MISSION"
+  },
+  {
+    "scenario": "Scenario 03: Slow GPS Position Drift (25m)",
+    "raw_rmse_m": 22.563,
+    "resilient_rmse_m": 0.137,
+    "rmse_improvement_pct": 99.4,
+    "time_to_detect_s": 0.6,
+    "time_to_contain_s": 0.8,
+    "final_nav_mode": "DEGRADED_OPTICAL_LIDAR"
+  },
+  {
+    "scenario": "Scenario 04: Abrupt GPS Step Jump (30m)",
+    "raw_rmse_m": 27.367,
+    "resilient_rmse_m": 0.095,
+    "rmse_improvement_pct": 99.7,
+    "time_to_detect_s": 0.3,
+    "time_to_contain_s": 0.5,
+    "final_nav_mode": "DEGRADED_OPTICAL_LIDAR"
+  },
+  {
+    "scenario": "Scenario 06: IMU Constant Bias Manipulation",
+    "raw_rmse_m": 0.347,
+    "resilient_rmse_m": 0.177,
+    "rmse_improvement_pct": 49.0,
+    "time_to_detect_s": 0.4,
+    "time_to_contain_s": 0.5,
+    "final_nav_mode": "HOLD_POSITION"
+  },
+  {
+    "scenario": "Scenario 14: Coordinated GPS + IMU Attack",
+    "raw_rmse_m": 16.35,
+    "resilient_rmse_m": 0.097,
+    "rmse_improvement_pct": 99.4,
+    "time_to_detect_s": 0.3,
+    "time_to_contain_s": 0.5,
+    "final_nav_mode": "EMERGENCY_LANDING"
+  }
+]
