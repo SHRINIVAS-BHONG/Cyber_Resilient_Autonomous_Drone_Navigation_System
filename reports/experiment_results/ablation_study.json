@@ -1,0 +1,38 @@
+[
+  {
+    "architecture": "Arch 1: Unprotected Baseline (Naive EKF)",
+    "nominal_rmse_m": 0.11,
+    "attack_rmse_m": 20.561,
+    "mean_ttd_s": null,
+    "mean_ttc_s": null,
+    "false_alarm_rate_pct": 0.0,
+    "safe_landing_rate_pct": 0.0
+  },
+  {
+    "architecture": "Arch 2: Statistical NIS Gating Only",
+    "nominal_rmse_m": 0.123,
+    "attack_rmse_m": 2.066,
+    "mean_ttd_s": 1.5,
+    "mean_ttc_s": 1.5,
+    "false_alarm_rate_pct": 0.0,
+    "safe_landing_rate_pct": 100.0
+  },
+  {
+    "architecture": "Arch 3: Machine Learning Only",
+    "nominal_rmse_m": 0.123,
+    "attack_rmse_m": 5.654,
+    "mean_ttd_s": 0.1,
+    "mean_ttc_s": 0.3,
+    "false_alarm_rate_pct": 0.0,
+    "safe_landing_rate_pct": 0.0
+  },
+  {
+    "architecture": "Arch 4: Proposed Hybrid Multi-Tier CPS",
+    "nominal_rmse_m": 0.123,
+    "attack_rmse_m": 2.377,
+    "mean_ttd_s": 1.73,
+    "mean_ttc_s": 1.93,
+    "false_alarm_rate_pct": 0.0,
+    "safe_landing_rate_pct": 100.0
+  }
+]

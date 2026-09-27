@@ -132,37 +132,47 @@ def clear_attacks():
 
 
 def print_menu():
-    print("\n" + "=" * 75)
-    print("  [*] CYBER-RESILIENT DRONE SYSTEM - COMMAND CENTER")
-    print("=" * 75)
-    print("  [1] Open Mission Dashboard in Browser  (http://localhost:8501)")
-    print("  [2] Open Swagger API Documentation     (http://localhost:8000/docs)")
-    print("  [3] Inject GPS Spoofing Attack         (Drift + Step Jump)")
-    print("  [4] Inject IMU Bias Attack             (Gyro + Accel Manipulation)")
-    print("  [5] Inject LiDAR Corruption Attack     (Altimeter Range Fault)")
-    print("  [6] Inject Multi-Sensor Attack         (Coordinated GPS + IMU)")
+    print("\n" + "=" * 78)
+    print("  🛸 CYBER-RESILIENT AUTONOMOUS DRONE NAVIGATION SYSTEM - COMMAND CENTER")
+    print("=" * 78)
+    print("  ACADEMIC PRESENTATION & VISUALIZATION INTERFACES:")
+    print("  [1] Open Mission Analytics Dashboard   (Streamlit: http://localhost:8501)")
+    print("  [2] Open 3D Tactical Flight Cockpit    (Three.js:  http://localhost:8000/cockpit)")
+    print("  [3] Open Swagger API Documentation     (FastAPI:   http://localhost:8000/docs)")
+    print("  [4] Launch Live Terminal Head-Up Display (ASCII HUD Inspector)")
+    print("-" * 78)
+    print("  SCIENTIFIC VERIFICATION & DEFENSE BENCHMARKS:")
+    print("  [5] Run 15-Scenario Benchmark Suite    (Physical, Cyber, Comm Scenarios)")
+    print("  [6] Run Architectural Ablation Study   (4 Defense Configurations)")
+    print("  [7] Generate Defense Report & Figures  (IEEE/Markdown & 300 DPI Plots)")
+    print("  [8] Run Automated Test Suite           (pytest 35 Unit/Integration Tests)")
+    print("-" * 78)
+    print("  LIVE CYBER-ATTACK INJECTION CONTROLS:")
+    print("  [g] Inject GPS Spoofing Attack         (25m Slow Drift + Step Jump)")
+    print("  [i] Inject IMU Bias Manipulation       (+2.5 m/s² Accelerometer Tampering)")
+    print("  [l] Inject LiDAR Range Corruption      (Altimeter Range Fault)")
+    print("  [m] Inject Coordinated Multi-Attack    (Simultaneous GPS + IMU)")
     print("  [0] Clear Attacks / Return to Normal")
-    print("  [t] Run All Automated System Tests     (pytest)")
-    print("  [b] Run Quantitative Benchmarks")
     print("  [q] Stop All Services and Exit")
-    print("-" * 75)
+    print("=" * 78)
 
 
 def main():
     os.system("cls" if os.name == "nt" else "clear")
-    print("\n" + "=" * 75)
+    print("\n" + "=" * 78)
     print("  🛸 CYBER-RESILIENT AUTONOMOUS DRONE NAVIGATION SYSTEM")
-    print("  Zero Mocks | Authentic Flight Telemetry | Dual Statistical & ML Engine")
-    print("=" * 75)
+    print("  Zero Mocks | 10-DOF Extended Kalman Filter | Dual Statistical & ML Engine")
+    print("=" * 78)
 
     # 1. Start Services
     start_fastapi_gateway()
     start_streamlit_dashboard()
 
-    # 2. Auto-open browser
+    # 2. Auto-open browser to 3D Cockpit & Dashboard
     time.sleep(1.0)
-    print("\n[*] Opening Mission Dashboard in your default browser...")
+    print("\n[*] Opening Mission Interfaces in your default browser...")
     try:
+        webbrowser.open("http://localhost:8000/cockpit")
         webbrowser.open("http://localhost:8501")
     except Exception:
         pass
@@ -178,25 +188,36 @@ def main():
         if choice == "1":
             webbrowser.open("http://localhost:8501")
         elif choice == "2":
-            webbrowser.open("http://localhost:8000/docs")
+            webbrowser.open("http://localhost:8000/cockpit")
         elif choice == "3":
-            trigger_attack("gps_spoofing", magnitude=25.0)
+            webbrowser.open("http://localhost:8000/docs")
         elif choice == "4":
-            trigger_attack("imu_manipulation", magnitude=2.5)
+            print("\n[*] Launching Live Terminal Head-Up Display (HUD)...")
+            subprocess.run([sys.executable, "scripts/hud_inspector.py"], cwd=str(root_dir))
         elif choice == "5":
-            trigger_attack("lidar_corruption", magnitude=8.0)
+            print("\n[*] Running 15-Scenario Comprehensive Benchmark Suite...")
+            subprocess.run([sys.executable, "scripts/run_benchmarks.py"], cwd=str(root_dir))
         elif choice == "6":
+            print("\n[*] Running Architectural Ablation Study...")
+            subprocess.run([sys.executable, "scripts/run_ablation_study.py"], cwd=str(root_dir))
+        elif choice == "7":
+            print("\n[*] Generating Academic Defense Report and Publication Figures...")
+            subprocess.run([sys.executable, "scripts/generate_defense_report.py"], cwd=str(root_dir))
+        elif choice == "8" or choice == "t":
+            print("\n[*] Running automated system test suite (pytest)...")
+            subprocess.run([sys.executable, "-m", "pytest", "tests/", "-v"], cwd=str(root_dir))
+        elif choice == "g" or choice == "3":
+            trigger_attack("gps_spoofing", magnitude=25.0)
+        elif choice == "i" or choice == "4":
+            trigger_attack("imu_manipulation", magnitude=2.5)
+        elif choice == "l" or choice == "5":
+            trigger_attack("lidar_corruption", magnitude=8.0)
+        elif choice == "m" or choice == "6":
             trigger_attack("multi_attack", magnitude=20.0)
         elif choice == "0":
             clear_attacks()
-        elif choice == "t":
-            print("\n[*] Running 35 automated unit and integration tests...")
-            subprocess.run([sys.executable, "-m", "pytest", "tests/", "-v"], cwd=str(root_dir))
-        elif choice == "b":
-            print("\n[*] Running quantitative benchmark scenarios...")
-            subprocess.run([sys.executable, "scripts/run_benchmarks.py"], cwd=str(root_dir))
         elif choice == "q":
-            print("\nExiting...")
+            print("\nExiting Cyber-Resilient Drone System...")
             break
         else:
             print("Invalid option. Please choose from the menu.")

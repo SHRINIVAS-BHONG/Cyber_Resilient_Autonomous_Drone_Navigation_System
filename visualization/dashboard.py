@@ -381,13 +381,29 @@ else:
     df = run_simulation(sim_duration, attack_type, attack_start, attack_duration, attack_magnitude)
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🛸 Live 3D Flight & Real-Time Cyber Attack Simulator",
         "📈 3D Flight Trajectory & Recovery",
         "🔬 Innovation Residuals & NIS Gating",
         "🛡️ Dynamic Sensor Trust & Resilience",
         "📊 Performance Metrics & Export",
         "🧠 Machine Learning Detector (Real Hardware Data)"
     ])
+
+    with tab0:
+        st.subheader("🛸 Real-Time 3D Drone Flight & Dynamic Cyber-Attack Simulator")
+        st.markdown("""
+        **Live Interactive 3D Flight**: The virtual drone is actively navigating the mission waypoints in real-time.
+        Click any attack button inside the 3D cockpit or in the bottom bar to **inject cyber-attacks while the drone is in flight**,
+        and watch how the 10-DOF EKF, Chi-Square NIS Detector, and Resilience Manager immediately contain the attack and dynamically reroute!
+        """)
+        cockpit_path = root_dir / "visualization" / "cockpit.html"
+        if cockpit_path.exists():
+            with open(cockpit_path, "r", encoding="utf-8") as f:
+                cockpit_code = f.read()
+            import streamlit.components.v1 as components
+            components.html(cockpit_code, height=720, scrolling=False)
+            st.caption("Tip: You can also open the Fullscreen 3D Cockpit directly at [http://localhost:8000/cockpit](http://localhost:8000/cockpit).")
 
     with tab1:
         st.subheader("3D Trajectory Reconstruction (Ground Truth vs. Spoofed vs. Resilient EKF)")
@@ -491,14 +507,31 @@ else:
         m4.metric("Resilient EKF RMSE", f"{np.sqrt(np.mean(pos_error_ekf**2)):.2f} m")
 
         st.markdown("---")
-        st.subheader("📋 System Benchmark Suite Evaluation (5 Critical Attack Scenarios)")
+        st.subheader("📋 System Benchmark Suite Evaluation (15 Multi-Vector Attack Scenarios)")
         benchmark_file = root_dir / "reports" / "experiment_results" / "benchmark_summary.json"
         if benchmark_file.exists():
             with open(benchmark_file, "r", encoding="utf-8") as bf:
                 bdata = json.load(bf)
-            bdf = pd.DataFrame(bdata)
-            bdf.columns = ["Scenario", "Raw RMSE (m)", "Resilient RMSE (m)", "Improvement (%)", "TTD (s)", "TTC (s)", "Final Mode"]
-            st.dataframe(bdf, use_container_width=True)
+            scenarios_list = bdata.get("scenarios", []) if isinstance(bdata, dict) else bdata
+            bdf = pd.DataFrame(scenarios_list)
+            column_mapping = {
+                "id": "ID",
+                "scenario": "Scenario Name",
+                "category": "Attack Category",
+                "raw_rmse_m": "Unmitigated Error (m)",
+                "resilient_rmse_m": "Resilient EKF Error (m)",
+                "rmse_improvement_pct": "Error Reduction (%)",
+                "time_to_detect_s": "TTD (s)",
+                "time_to_contain_s": "TTC (s)",
+                "final_nav_mode": "Failsafe Mode",
+                "survived": "Survived"
+            }
+            existing_cols = [c for c in column_mapping.keys() if c in bdf.columns]
+            if existing_cols:
+                bdf_display = bdf[existing_cols].rename(columns=column_mapping)
+                st.dataframe(bdf_display, use_container_width=True)
+            else:
+                st.dataframe(bdf, use_container_width=True)
         else:
             st.info("Run `python scripts/run_benchmarks.py` to generate the complete scenario benchmark suite.")
 
@@ -512,7 +545,7 @@ else:
 
     with tab5:
         st.subheader("🧠 Machine Learning Cyber-Attack Detector (Trained on Real UAS Data)")
-        st.markdown("""
+        st.markdown(r"""
         This independent classifier runs as a **second-opinion voter** alongside the statistical EKF $\chi^2$ detector.
         Trained on **27,906 authentic hardware GPS logs** (`Clean` vs. `Spoofed`) and real drone cyber records,
         achieving **100.0% test accuracy** with **0.020 ms inference latency** (>48,900 Hz throughput).

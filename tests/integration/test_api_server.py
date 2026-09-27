@@ -14,7 +14,7 @@ def client():
 
 
 def test_root_endpoint(client):
-    response = client.get("/")
+    response = client.get("/", headers={"Accept": "application/json"})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "OPERATIONAL"
