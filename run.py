@@ -77,30 +77,6 @@ def start_fastapi_gateway():
     return proc
 
 
-def start_streamlit_dashboard():
-    """Starts Streamlit web dashboard on port 8501."""
-    if is_port_in_use(8501):
-        print("[+] Streamlit Dashboard is already running on port 8501.")
-        return None
-
-    print("[*] Starting Streamlit Mission Dashboard on port 8501...")
-    cmd = [
-        sys.executable, "-m", "streamlit", "run", "visualization/dashboard.py",
-        "--server.port", "8501", "--server.address", "0.0.0.0",
-        "--server.headless", "true"
-    ]
-    proc = subprocess.Popen(cmd, cwd=str(root_dir))
-    managed_processes.append(proc)
-
-    # Wait for dashboard to become ready
-    for _ in range(25):
-        if is_port_in_use(8501):
-            print("[+] Streamlit Dashboard active: http://localhost:8501")
-            return proc
-        time.sleep(0.3)
-    return proc
-
-
 def trigger_attack(attack_type: str, magnitude: float = 20.0):
     """Sends 1-click cyber-attack injection request to the gateway."""
     url = "http://localhost:8000/attack/inject"
@@ -135,17 +111,16 @@ def print_menu():
     print("\n" + "=" * 78)
     print("  🛸 CYBER-RESILIENT AUTONOMOUS DRONE NAVIGATION SYSTEM - COMMAND CENTER")
     print("=" * 78)
-    print("  ACADEMIC PRESENTATION & VISUALIZATION INTERFACES:")
-    print("  [1] Open Mission Analytics Dashboard   (Streamlit: http://localhost:8501)")
-    print("  [2] Open 3D Tactical Flight Cockpit    (Three.js:  http://localhost:8000/cockpit)")
-    print("  [3] Open Swagger API Documentation     (FastAPI:   http://localhost:8000/docs)")
-    print("  [4] Launch Live Terminal Head-Up Display (ASCII HUD Inspector)")
+    print("  PRIMARY VISUALIZATION & INTERFACES:")
+    print("  [1] Open 3D Tactical Flight Cockpit    (Three.js GCS: http://localhost:8000/cockpit)")
+    print("  [2] Open Swagger API Documentation     (FastAPI Docs:  http://localhost:8000/docs)")
+    print("  [3] Launch Live Terminal Head-Up Display (ASCII HUD Inspector)")
     print("-" * 78)
     print("  SCIENTIFIC VERIFICATION & DEFENSE BENCHMARKS:")
-    print("  [5] Run 15-Scenario Benchmark Suite    (Physical, Cyber, Comm Scenarios)")
-    print("  [6] Run Architectural Ablation Study   (4 Defense Configurations)")
-    print("  [7] Generate Defense Report & Figures  (IEEE/Markdown & 300 DPI Plots)")
-    print("  [8] Run Automated Test Suite           (pytest 35 Unit/Integration Tests)")
+    print("  [4] Run 15-Scenario Benchmark Suite    (Physical, Cyber, Comm Scenarios)")
+    print("  [5] Run Architectural Ablation Study   (4 Defense Configurations)")
+    print("  [6] Generate Defense Report & Figures  (LaTeX Formulations & 300 DPI Plots)")
+    print("  [7] Run Automated Test Suite           (pytest 35 Unit/Integration Tests)")
     print("-" * 78)
     print("  LIVE CYBER-ATTACK INJECTION CONTROLS:")
     print("  [g] Inject GPS Spoofing Attack         (25m Slow Drift + Step Jump)")
@@ -164,16 +139,14 @@ def main():
     print("  Zero Mocks | 10-DOF Extended Kalman Filter | Dual Statistical & ML Engine")
     print("=" * 78)
 
-    # 1. Start Services
+    # 1. Start Services (FastAPI 3D Cockpit Gateway)
     start_fastapi_gateway()
-    start_streamlit_dashboard()
 
-    # 2. Auto-open browser to 3D Cockpit & Dashboard
+    # 2. Auto-open browser to 3D Cockpit GCS
     time.sleep(1.0)
-    print("\n[*] Opening Mission Interfaces in your default browser...")
+    print("\n[*] Opening 3D Ground Control Station in your default browser...")
     try:
         webbrowser.open("http://localhost:8000/cockpit")
-        webbrowser.open("http://localhost:8501")
     except Exception:
         pass
 
@@ -186,33 +159,31 @@ def main():
             break
 
         if choice == "1":
-            webbrowser.open("http://localhost:8501")
-        elif choice == "2":
             webbrowser.open("http://localhost:8000/cockpit")
-        elif choice == "3":
+        elif choice == "2":
             webbrowser.open("http://localhost:8000/docs")
-        elif choice == "4":
+        elif choice == "3":
             print("\n[*] Launching Live Terminal Head-Up Display (HUD)...")
             subprocess.run([sys.executable, "scripts/hud_inspector.py"], cwd=str(root_dir))
-        elif choice == "5":
+        elif choice == "4":
             print("\n[*] Running 15-Scenario Comprehensive Benchmark Suite...")
             subprocess.run([sys.executable, "scripts/run_benchmarks.py"], cwd=str(root_dir))
-        elif choice == "6":
+        elif choice == "5":
             print("\n[*] Running Architectural Ablation Study...")
             subprocess.run([sys.executable, "scripts/run_ablation_study.py"], cwd=str(root_dir))
-        elif choice == "7":
+        elif choice == "6":
             print("\n[*] Generating Academic Defense Report and Publication Figures...")
             subprocess.run([sys.executable, "scripts/generate_defense_report.py"], cwd=str(root_dir))
-        elif choice == "8" or choice == "t":
+        elif choice == "7" or choice == "t":
             print("\n[*] Running automated system test suite (pytest)...")
             subprocess.run([sys.executable, "-m", "pytest", "tests/", "-v"], cwd=str(root_dir))
-        elif choice == "g" or choice == "3":
+        elif choice == "g":
             trigger_attack("gps_spoofing", magnitude=25.0)
-        elif choice == "i" or choice == "4":
+        elif choice == "i":
             trigger_attack("imu_manipulation", magnitude=2.5)
-        elif choice == "l" or choice == "5":
+        elif choice == "l":
             trigger_attack("lidar_corruption", magnitude=8.0)
-        elif choice == "m" or choice == "6":
+        elif choice == "m":
             trigger_attack("multi_attack", magnitude=20.0)
         elif choice == "0":
             clear_attacks()

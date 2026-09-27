@@ -20,9 +20,7 @@ pydantic>=2.0.0
 requests>=2.31.0
 websockets>=12.0
 
-# Interactive Dashboard & Visualizations
-streamlit>=1.30.0
-plotly>=5.18.0
+# Publication & Verification Plotting
 matplotlib>=3.7.0
 
 # Automated Testing & Verification
