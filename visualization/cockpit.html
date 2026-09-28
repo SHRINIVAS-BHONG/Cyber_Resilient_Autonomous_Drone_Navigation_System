@@ -50,7 +50,8 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 14px 16px;
+      padding: 10px 14px;
+      transition: opacity 0.3s ease;
     }
     .hud-interactive { pointer-events: auto; }
     .glass-panel {
@@ -58,9 +59,51 @@
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--card-border);
-      border-radius: 14px;
+      border-radius: 12px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12);
-      padding: 12px 16px;
+      padding: 10px 14px;
+    }
+
+    /* Zen View Mode (Full 3D Scene Immersion) */
+    .hud-layer.zen-mode .top-bar,
+    .hud-layer.zen-mode .mid-layer,
+    .hud-layer.zen-mode .bottom-dock-wrapper,
+    .hud-layer.zen-mode .attack-alert-banner {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(-12px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hud-layer.zen-mode .zen-banner {
+      display: flex !important;
+    }
+    .zen-banner {
+      display: none;
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 16, 30, 0.85);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #94a3b8;
+      padding: 6px 18px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.74rem;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      pointer-events: auto;
+      z-index: 200;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      transition: all 0.2s ease;
+    }
+    .zen-banner:hover {
+      background: rgba(56, 189, 248, 0.2);
+      color: #fff;
+      border-color: #38bdf8;
+      transform: translateX(-50%) scale(1.02);
     }
 
     /* Top Status Bar */
@@ -68,26 +111,31 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
+      width: 100%;
+      transition: all 0.3s ease;
     }
     .brand-title {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 24px;
     }
     .brand-title h1 {
-      font-size: 1.12rem;
+      font-size: 0.95rem;
       font-weight: 800;
       letter-spacing: 0.5px;
       background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      white-space: nowrap;
     }
     .drone-badge {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      padding: 3px 8px;
-      border-radius: 6px;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 5px;
       background: rgba(56, 189, 248, 0.15);
       border: 1px solid rgba(56, 189, 248, 0.4);
       color: var(--accent-cyan);
@@ -95,16 +143,17 @@
     .mode-indicator {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
+      font-size: 0.75rem;
       font-weight: 700;
-      padding: 6px 14px;
+      padding: 5px 12px;
       border-radius: 20px;
       background: rgba(16, 185, 129, 0.15);
       border: 1px solid rgba(16, 185, 129, 0.4);
       color: var(--accent-green);
       transition: all 0.3s ease;
+      white-space: nowrap;
     }
     .mode-indicator.attack {
       background: rgba(239, 68, 68, 0.2);
@@ -113,10 +162,10 @@
       box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
     }
     .status-dot {
-      width: 8px; height: 8px;
+      width: 7px; height: 7px;
       border-radius: 50%;
       background: currentColor;
-      box-shadow: 0 0 8px currentColor;
+      box-shadow: 0 0 6px currentColor;
     }
 
     /* Attack Notification Banner */
@@ -124,16 +173,16 @@
       display: none;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 10px;
       background: rgba(239, 68, 68, 0.92);
       color: #fff;
       font-weight: 700;
-      font-size: 0.92rem;
-      padding: 8px 24px;
+      font-size: 0.84rem;
+      padding: 6px 20px;
       border-radius: 30px;
       box-shadow: 0 0 25px rgba(239, 68, 68, 0.8);
-      margin: 6px auto 0 auto;
-      max-width: 820px;
+      margin: 4px auto 0 auto;
+      max-width: 780px;
       text-align: center;
       animation: pulseAlert 1.5s infinite alternate;
     }
@@ -147,36 +196,99 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 16px;
+      gap: 12px;
       flex: 1;
-      padding: 10px 0;
+      padding: 6px 0;
       pointer-events: none;
+      transition: all 0.3s ease;
     }
     .side-panel {
-      width: 300px;
+      width: 240px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
       pointer-events: auto;
+      transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s ease;
+      position: relative;
     }
-
+    .side-panel.collapsed {
+      width: 38px;
+      min-width: 38px;
+    }
+    .side-panel.collapsed .panel-body {
+      display: none !important;
+    }
+    .side-panel.collapsed .panel-tab-collapsed {
+      display: flex !important;
+    }
+    .panel-tab-collapsed {
+      display: none;
+      writing-mode: vertical-lr;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 16px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--accent-cyan);
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      transition: all 0.2s ease;
+    }
+    .panel-tab-collapsed:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #38bdf8;
+      color: #fff;
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .panel-toggle-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #94a3b8;
+      border-radius: 4px;
+      width: 20px;
+      height: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .panel-toggle-btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      color: #fff;
+      border-color: #38bdf8;
+    }
     .card-title {
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.6px;
       color: var(--accent-cyan);
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 8px;
+      gap: 5px;
     }
 
     /* Primary Flight Display (PFD) Gauge */
     .pfd-container {
       position: relative;
       width: 100%;
-      height: 105px;
+      height: 90px;
       background: #030712;
       border-radius: 8px;
       overflow: hidden;
@@ -208,16 +320,16 @@
     }
     .aircraft-symbol {
       position: absolute;
-      width: 32px;
-      height: 4px;
+      width: 28px;
+      height: 3px;
       background: #facc15;
       box-shadow: 0 0 6px #facc15;
       z-index: 5;
     }
     .aircraft-dot {
       position: absolute;
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: #facc15;
       box-shadow: 0 0 6px #facc15;
@@ -227,145 +339,232 @@
     .kpi-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 6px;
     }
     .kpi-card {
       background: rgba(2, 6, 23, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 8px;
-      padding: 7px 9px;
+      border-radius: 6px;
+      padding: 6px 8px;
     }
     .kpi-label {
-      font-size: 0.66rem;
+      font-size: 0.62rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-secondary);
     }
     .kpi-value {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 1.0rem;
+      font-size: 0.92rem;
       font-weight: 700;
       color: var(--text-primary);
-      margin-top: 2px;
+      margin-top: 1px;
     }
-    .kpi-unit { font-size: 0.7rem; color: var(--text-secondary); margin-left: 2px; }
+    .kpi-unit { font-size: 0.65rem; color: var(--text-secondary); margin-left: 2px; }
 
     /* Trust Score Bars */
     .trust-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
     .trust-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.74rem;
+      font-size: 0.70rem;
     }
     .progress-bar-bg {
-      width: 105px;
-      height: 8px;
+      width: 90px;
+      height: 6px;
       background: rgba(255,255,255,0.08);
-      border-radius: 4px;
+      border-radius: 3px;
       overflow: hidden;
-      margin-left: 8px;
+      margin-left: 6px;
     }
     .progress-bar-fill {
       height: 100%;
-      border-radius: 4px;
+      border-radius: 3px;
       transition: width 0.3s ease, background-color 0.3s ease;
     }
 
     /* Live Scope Canvas */
     #nis-canvas {
       width: 100%;
-      height: 48px;
+      height: 42px;
       background: #020617;
       border-radius: 6px;
       border: 1px solid rgba(56, 189, 248, 0.2);
-      margin-top: 5px;
+      margin-top: 4px;
     }
 
-    /* Bottom Control Stacks */
-    .bottom-stack {
+    /* Sleek Unified Floating Bottom Dock */
+    .bottom-dock-wrapper {
+      position: relative;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      pointer-events: none;
+      z-index: 100;
+      margin-bottom: 2px;
+      transition: all 0.3s ease;
     }
-    .bottom-bar {
+    .bottom-dock {
       display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(10, 16, 30, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 30px;
+      padding: 5px 12px;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.1);
+      pointer-events: auto;
+      position: relative;
+      flex-wrap: nowrap;
+    }
+    .dock-divider {
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.12);
+      margin: 0 2px;
+    }
+    .dock-status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(2, 6, 23, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      white-space: nowrap;
+    }
+    .dock-btn {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 5px 11px;
+      border-radius: 16px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      background: rgba(30, 41, 59, 0.6);
+      border-color: rgba(148, 163, 184, 0.2);
+      color: #e2e8f0;
+    }
+    .dock-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #38bdf8;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .dock-btn:active { transform: scale(0.96); }
+    .dock-btn.active {
+      background: rgba(56, 189, 248, 0.35);
+      border-color: #38bdf8;
+      color: #fff;
+      font-weight: 700;
+    }
+    .dock-btn-flight {
+      background: rgba(16, 185, 129, 0.14);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+    }
+    .dock-btn-flight:hover {
+      background: rgba(16, 185, 129, 0.3);
+      border-color: #10b981;
+      color: #fff;
+    }
+    .dock-btn-rtl {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #fcd34d;
+    }
+    .dock-btn-rtl:hover {
+      background: rgba(245, 158, 11, 0.3);
+      border-color: #f59e0b;
+      color: #fff;
+    }
+    .dock-btn-attack {
+      background: rgba(239, 68, 68, 0.14);
+      border-color: rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .dock-btn-attack:hover {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: #ef4444;
+      color: #fff;
+    }
+    .dock-btn-attack.has-active {
+      background: rgba(239, 68, 68, 0.35);
+      border-color: #ef4444;
+      color: #fff;
+      animation: attackPulse 1.5s infinite alternate;
+    }
+    @keyframes attackPulse {
+      0% { box-shadow: 0 0 5px rgba(239,68,68,0.4); }
+      100% { box-shadow: 0 0 15px rgba(239,68,68,0.8); }
+    }
+
+    /* Floating Popovers */
+    .dock-popover {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 10px);
+      background: rgba(10, 16, 32, 0.96);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 14px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.8), 0 0 20px rgba(56, 189, 248, 0.15);
+      padding: 12px 14px;
+      z-index: 1000;
+      animation: popoverFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popoverFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .popover-header {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
     }
-    .controls-panel {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+    .popover-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
     }
+
     .btn {
       font-family: 'Outfit', sans-serif;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      padding: 7px 13px;
-      border-radius: 8px;
+      padding: 5px 12px;
+      border-radius: 16px;
       cursor: pointer;
       border: 1px solid transparent;
       transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
       gap: 5px;
+      white-space: nowrap;
     }
     .btn:active { transform: scale(0.96); }
-    .btn-attack {
-      background: rgba(239, 68, 68, 0.15);
-      border-color: rgba(239, 68, 68, 0.4);
-      color: #fca5a5;
-    }
-    .btn-attack:hover {
-      background: rgba(239, 68, 68, 0.35);
-      color: #fff;
-      box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
-    }
-    .btn-safe {
-      background: rgba(16, 185, 129, 0.15);
-      border-color: rgba(16, 185, 129, 0.4);
-      color: #6ee7b7;
-    }
-    .btn-safe:hover {
-      background: rgba(16, 185, 129, 0.35);
-      color: #fff;
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
-    }
-    .btn-dest {
-      background: rgba(56, 189, 248, 0.12);
-      border-color: rgba(56, 189, 248, 0.35);
-      color: #bae6fd;
-    }
-    .btn-dest:hover {
-      background: rgba(56, 189, 248, 0.3);
-      color: #fff;
-      box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
-    }
-    .btn-dest.active {
-      background: rgba(56, 189, 248, 0.4);
-      border-color: #38bdf8;
-      color: #fff;
-      font-weight: 700;
-    }
-    .btn-rtl {
-      background: rgba(245, 158, 11, 0.15);
-      border-color: rgba(245, 158, 11, 0.4);
-      color: #fcd34d;
-    }
-    .btn-rtl:hover {
-      background: rgba(245, 158, 11, 0.35);
-      color: #fff;
-      box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
-    }
     .btn-view {
       background: rgba(56, 189, 248, 0.12);
       border-color: rgba(56, 189, 248, 0.3);
@@ -376,75 +575,24 @@
       color: #030712;
       font-weight: 700;
     }
-    .btn-cam-chip {
-      padding: 4px 8px;
-      font-size: 0.73rem;
-      font-weight: 600;
-      border-radius: 6px;
-      background: rgba(30, 41, 59, 0.7);
-      border: 1px solid rgba(148, 163, 184, 0.28);
-      color: #cbd5e1;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .btn-cam-chip:hover {
-      background: rgba(56, 189, 248, 0.25);
-      border-color: var(--accent-cyan);
-      color: #fff;
-      transform: translateY(-1px);
-    }
 
-    /* Target Goal Status Badge */
-    .target-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(2, 6, 23, 0.7);
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      border-radius: 8px;
-      padding: 4px 10px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.76rem;
-      color: #38bdf8;
-    }
-
-    .click-hint-badge {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      color: var(--accent-gold);
-      background: rgba(250, 204, 21, 0.1);
-      border: 1px dashed rgba(250, 204, 21, 0.4);
-      padding: 5px 10px;
-      border-radius: 6px;
-      animation: hintGlow 2.5s infinite alternate;
-    }
-    @keyframes hintGlow {
-      0% { opacity: 0.75; }
-      100% { opacity: 1.0; box-shadow: 0 0 10px rgba(250, 204, 21, 0.25); }
-    }
-
-    /* Dual Trail Legend */
+    /* Micro Trail Legend */
     .trail-legend {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.72rem;
-      background: rgba(15, 23, 42, 0.7);
-      padding: 6px 14px;
+      font-size: 0.68rem;
+      background: rgba(13, 20, 36, 0.75);
+      padding: 5px 12px;
       border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.08);
+      white-space: nowrap;
     }
-    .legend-item { display: flex; align-items: center; gap: 6px; }
-    .line-cyan { width: 18px; height: 3px; background: #38bdf8; box-shadow: 0 0 6px #38bdf8; border-radius: 2px; }
-    .line-gold { width: 18px; height: 3px; background: #facc15; box-shadow: 0 0 6px #facc15; border-radius: 2px; }
-    .line-red { width: 18px; height: 3px; background: #ef4444; box-shadow: 0 0 6px #ef4444; border-radius: 2px; border: 1px dashed #ef4444; }
+    .legend-item { display: flex; align-items: center; gap: 5px; color: #cbd5e1; }
+    .line-cyan { width: 14px; height: 3px; background: #38bdf8; box-shadow: 0 0 5px #38bdf8; border-radius: 2px; }
+    .line-gold { width: 14px; height: 3px; background: #facc15; box-shadow: 0 0 5px #facc15; border-radius: 2px; }
+    .line-red { width: 14px; height: 3px; background: #ef4444; box-shadow: 0 0 5px #ef4444; border-radius: 2px; border: 1px dashed #ef4444; }
 
     /* Tactical Toast Popups */
     .tactical-toast {
@@ -666,18 +814,25 @@
   <!-- Tactical Toast Notification -->
   <div id="tactical-toast" class="tactical-toast">🎯 TARGET DISPATCHED</div>
 
+  <!-- Zen Banner (shown only when Zen Mode is active) -->
+  <div class="zen-banner hud-interactive" onclick="toggleZenMode()">
+    <span>👁️</span> <strong>ZEN MODE ACTIVE</strong> — Press 'Z' or Click to Restore HUD
+  </div>
+
   <!-- HUD Layer -->
   <div class="hud-layer">
     
-    <!-- Top Bar -->
+    <!-- Sleek Top Status Bar -->
     <div class="top-bar">
       <div class="glass-panel brand-title hud-interactive">
-        <span style="font-size: 1.4rem;">🛸</span>
+        <span style="font-size: 1.15rem;">🛸</span>
         <div>
-          <h1>CYBER-RESILIENT AUTONOMOUS DRONE</h1>
-          <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
-            <span class="drone-badge">PX4 SITL + 10-DOF EKF</span>
-            <span style="font-size: 0.72rem; color: var(--text-secondary);">400m Tactical Proving Ground • 10 Hz Real-Time Loop</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h1>AERO-SHIELD GCS</h1>
+            <span class="drone-badge">PX4 SITL</span>
+          </div>
+          <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 1px;">
+            10-DOF Resilient EKF • 400m Tactical Proving Ground
           </div>
         </div>
       </div>
@@ -685,21 +840,22 @@
       <div class="trail-legend hud-interactive">
         <div class="legend-item">
           <div class="line-cyan"></div>
-          <span>PROTECTED REAL FLIGHT (EKF + VO)</span>
+          <span>Real EKF</span>
         </div>
         <div class="legend-item">
           <div class="line-gold"></div>
-          <span>A* PLANNED TRAJECTORY</span>
+          <span>A* Plan</span>
         </div>
         <div class="legend-item">
           <div class="line-red"></div>
-          <span>SPOOFED GPS DRIFT (REJECTED)</span>
+          <span>Spoof GPS</span>
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button class="btn btn-view hud-interactive" onclick="toggleSettingsModal()" style="border-color: rgba(245,158,11,0.5); color: #f59e0b; font-weight: 700; padding: 7px 14px; border-radius: 20px; font-size: 0.76rem; background: rgba(245,158,11,0.12);">⚙️ SETTINGS</button>
-        <button class="btn btn-view hud-interactive" onclick="toggleBenchmarksModal()" style="border-color: rgba(56,189,248,0.5); color: #38bdf8; font-weight: 700; padding: 7px 14px; border-radius: 20px; font-size: 0.76rem; background: rgba(56,189,248,0.12);">📊 SPECS & PROOF</button>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button class="btn btn-view hud-interactive" id="btn-zen" onclick="toggleZenMode()" title="Zen Mode: Hide HUD for pure 3D flight view (Hotkeys: Z or Tab)" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; background: rgba(56,189,248,0.12);">👁️ ZEN</button>
+        <button class="btn btn-view hud-interactive" onclick="toggleSettingsModal()" title="System Configuration & Dynamics" style="border-color: rgba(245,158,11,0.4); color: #f59e0b; background: rgba(245,158,11,0.12);">⚙️ CONFIG</button>
+        <button class="btn btn-view hud-interactive" onclick="toggleBenchmarksModal()" title="Academic Proof & Verification Specs" style="border-color: rgba(139,92,246,0.4); color: #c084fc; background: rgba(139,92,246,0.12);">📊 SPECS</button>
         <div class="glass-panel mode-indicator hud-interactive" id="flight-mode-badge">
           <div class="status-dot"></div>
           <span id="flight-mode-text">NORMAL_MISSION</span>
@@ -977,10 +1133,18 @@
     <!-- Mid Layer: Side Telemetry Panels -->
     <div class="mid-layer">
       <!-- Left Avionics Panel -->
-      <div class="side-panel">
-        <div class="glass-panel hud-interactive">
-          <div class="card-title">
-            <span>✈️</span> PRIMARY FLIGHT DISPLAY (PFD)
+      <div class="side-panel" id="side-panel-left">
+        <!-- Collapsed vertical tab -->
+        <div class="panel-tab-collapsed" onclick="toggleSidePanel('left')" title="Click to Expand Avionics PFD">
+          <span>✈️</span> <span>AVIONICS PFD</span>
+        </div>
+        <!-- Panel Body -->
+        <div class="glass-panel hud-interactive panel-body">
+          <div class="panel-header">
+            <div class="card-title">
+              <span>✈️</span> PRIMARY FLIGHT DISPLAY
+            </div>
+            <button class="panel-toggle-btn" id="panel-toggle-btn-left" onclick="toggleSidePanel('left')" title="Minimize PFD">−</button>
           </div>
 
           <!-- Artificial Horizon Gauge -->
@@ -992,7 +1156,7 @@
             <div class="aircraft-symbol"></div>
           </div>
 
-          <div class="kpi-grid" style="margin-top: 10px;">
+          <div class="kpi-grid" style="margin-top: 8px;">
             <div class="kpi-card">
               <div class="kpi-label">MSL Altitude</div>
               <div class="kpi-value"><span id="val-alt">12.0</span><span class="kpi-unit">m</span></div>
@@ -1006,65 +1170,74 @@
               <div class="kpi-value"><span id="val-speed">2.8</span><span class="kpi-unit">m/s</span></div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Waypoint / Phase</div>
-              <div class="kpi-value"><span id="val-wp" style="font-size: 0.88rem;">WP-2/4</span></div>
+              <div class="kpi-label">Heading (Yaw)</div>
+              <div class="kpi-value"><span id="val-yaw">000</span><span class="kpi-unit">°</span></div>
             </div>
           </div>
 
           <!-- Real-Time Surface Profile & Landing Surface Detector -->
-          <div style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;">
+          <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 4px 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.70rem;">
             <span style="color: #94a3b8; display: flex; align-items: center; gap: 4px;"><span>📡</span> SURFACE:</span>
             <span id="val-surface-badge" style="color: #10b981; font-weight: 700;">GROUND_TARMAC (0.0m)</span>
           </div>
 
-          <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+          <div style="margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; background: rgba(0,0,0,0.4); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
             <div style="display: flex; justify-content: space-between; color: var(--accent-cyan);">
-              <span>EKF Position:</span>
+              <span>EKF Pos:</span>
               <span id="val-pos-ekf">[0.0, 0.0, 12.0]</span>
             </div>
-            <div style="display: flex; justify-content: space-between; color: #ef4444; margin-top: 3px;">
-              <span>Raw GPS Fix:</span>
+            <div style="display: flex; justify-content: space-between; color: #ef4444; margin-top: 2px;">
+              <span>Raw GPS:</span>
               <span id="val-pos-gps">[0.0, 0.0, 12.0]</span>
             </div>
-            <div style="display: flex; justify-content: space-between; color: #f59e0b; margin-top: 3px; font-weight: 700;">
-              <span>Attacker Drift:</span>
+            <div style="display: flex; justify-content: space-between; color: #f59e0b; margin-top: 2px; font-weight: 700;">
+              <span>Drift Err:</span>
               <span id="val-pos-error">0.00 m</span>
             </div>
+            <span id="val-wp" style="display: none;">WP-2/4</span>
           </div>
         </div>
       </div>
 
       <!-- Right Resilience & Sensor Health Panel -->
-      <div class="side-panel">
-        <div class="glass-panel hud-interactive">
-          <div class="card-title">
-            <span>🛡️</span> MULTI-SENSOR TRUST MATRIX
+      <div class="side-panel" id="side-panel-right">
+        <!-- Collapsed vertical tab -->
+        <div class="panel-tab-collapsed" onclick="toggleSidePanel('right')" title="Click to Expand Trust Matrix">
+          <span>🛡️</span> <span>TRUST MATRIX</span>
+        </div>
+        <!-- Panel Body -->
+        <div class="glass-panel hud-interactive panel-body">
+          <div class="panel-header">
+            <div class="card-title">
+              <span>🛡️</span> SENSOR TRUST MATRIX
+            </div>
+            <button class="panel-toggle-btn" id="panel-toggle-btn-right" onclick="toggleSidePanel('right')" title="Minimize Trust Matrix">−</button>
           </div>
           
           <div class="trust-group">
             <div class="trust-item">
-              <span>GPS SatNav (WGS-84)</span>
+              <span>GPS SatNav</span>
               <div style="display: flex; align-items: center;">
                 <span id="trust-txt-gps" style="color: #10b981; font-weight: 700;">100%</span>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" id="trust-bar-gps" style="width: 100%; background: #10b981;"></div></div>
               </div>
             </div>
             <div class="trust-item">
-              <span>IMU Inertial (6-DOF)</span>
+              <span>IMU Inertial</span>
               <div style="display: flex; align-items: center;">
                 <span id="trust-txt-imu" style="color: #10b981; font-weight: 700;">100%</span>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" id="trust-bar-imu" style="width: 100%; background: #10b981;"></div></div>
               </div>
             </div>
             <div class="trust-item">
-              <span>LiDAR Range Altimeter</span>
+              <span>LiDAR Altimeter</span>
               <div style="display: flex; align-items: center;">
                 <span id="trust-txt-lidar" style="color: #10b981; font-weight: 700;">100%</span>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" id="trust-bar-lidar" style="width: 100%; background: #10b981;"></div></div>
               </div>
             </div>
             <div class="trust-item">
-              <span>Visual-Inertial Odometry</span>
+              <span>VIO Odometry</span>
               <div style="display: flex; align-items: center;">
                 <span id="trust-txt-vision" style="color: #10b981; font-weight: 700;">100%</span>
                 <div class="progress-bar-bg"><div class="progress-bar-fill" id="trust-bar-vision" style="width: 100%; background: #10b981;"></div></div>
@@ -1072,91 +1245,122 @@
             </div>
           </div>
 
-          <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;">
-              <span style="color: var(--text-secondary);">GPS NIS Residual (Gate: 11.34):</span>
+          <div style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 6px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.70rem; font-family: 'JetBrains Mono', monospace;">
+              <span style="color: var(--text-secondary);">GPS NIS (Gate 11.34):</span>
               <span id="val-nis" style="color: var(--accent-cyan); font-weight: 700;">0.45</span>
             </div>
-            <canvas id="nis-canvas" width="270" height="48"></canvas>
+            <canvas id="nis-canvas" width="210" height="42"></canvas>
           </div>
 
-          <div style="margin-top: 6px; display: flex; justify-content: space-between; font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;">
-            <span style="color: var(--text-secondary);">ML Attack Classifier:</span>
+          <div style="margin-top: 5px; display: flex; justify-content: space-between; font-size: 0.70rem; font-family: 'JetBrains Mono', monospace;">
+            <span style="color: var(--text-secondary);">ML Classifier:</span>
             <span id="val-ml-class" style="color: #10b981; font-weight: 700;">NORMAL (99%)</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Bottom Stack: Destination Mission Controls + Attack Console -->
-    <div class="bottom-stack">
+    <!-- Sleek Floating Mission Command Dock -->
+    <div class="bottom-dock-wrapper">
       
-      <!-- Operator Path & Destination Planning Bar -->
-      <div class="glass-panel hud-interactive bottom-bar" style="padding: 10px 16px;">
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 1.05rem;">🎯</span>
-            <span style="font-size: 0.78rem; font-weight: 800; color: var(--accent-cyan); letter-spacing: 0.5px;">MISSION DESTINATION:</span>
-          </div>
-          <div id="target-status-badge" class="target-badge">
-            <span id="target-mode-name" style="font-weight: 700;">PERIMETER PATROL</span>
-            <span id="target-coords-txt" style="color: var(--text-secondary); margin-left: 4px;">[0, 0, 12m]</span>
-          </div>
-          <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--text-secondary);">
-            DIST: <span id="target-dist-val" style="color: var(--accent-cyan); font-weight: 700;">0.0 m</span>
-          </div>
-          <div class="target-badge" style="border-color: rgba(16,185,129,0.4);">
-            <span>STATE:</span>
-            <span id="flight-phase-txt" style="color: #10b981; font-weight: 800; margin-left: 4px;">CRUISE</span>
-          </div>
+      <!-- Popover: Destination Dispatch Tray -->
+      <div id="dispatch-popover" class="dock-popover hud-interactive" style="width: 440px; left: 50%; transform: translateX(-50%);">
+        <div class="popover-header">
+          <span>📍 DISPATCH DESTINATION</span>
+          <button class="modal-close-btn" style="width: 20px; height: 20px; font-size: 0.75rem;" onclick="closeAllPopovers()">✕</button>
+        </div>
+        <div style="font-size: 0.68rem; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">FIELD OUTPOSTS (12m CRUISE ALT):</div>
+        <div class="popover-grid">
+          <button class="dock-btn" id="btn-dest-charlie" onclick="sendDestination(45, 30, 12, 'OUTPOST_CHARLIE'); closeAllPopovers();">🏢 Outpost Charlie (45, 30)</button>
+          <button class="dock-btn" id="btn-dest-delta" onclick="sendDestination(-40, 50, 12, 'OBJECTIVE_DELTA'); closeAllPopovers();">📡 Objective Delta (-40, 50)</button>
+          <button class="dock-btn" id="btn-dest-echo" onclick="sendDestination(70, -35, 12, 'OBSERVATION_ECHO'); closeAllPopovers();">🔭 Observation Echo (70, -35)</button>
+          <button class="dock-btn" onclick="sendDestination(0, 0, 12, 'BASE_ALPHA'); closeAllPopovers();">🏠 Base Alpha (0, 0)</button>
         </div>
 
-        <div class="controls-panel">
-          <button class="btn btn-safe" onclick="sendTakeoff()">🛫 Takeoff</button>
-          <button class="btn btn-rtl" onclick="sendLand()">🛬 Land Now</button>
-          <button class="btn btn-rtl" onclick="sendRTL()">🏠 Return & Land</button>
-          <button class="btn btn-safe" onclick="sendPatrol()">🔄 Patrol</button>
-          <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700; margin-left: 4px;">DISPATCH:</span>
-          <button class="btn btn-dest" id="btn-dest-charlie" onclick="sendDestination(45, 30, 12, 'OUTPOST_CHARLIE')">🏢 Charlie (45, 30)</button>
-          <button class="btn btn-dest" id="btn-dest-delta" onclick="sendDestination(-40, 50, 12, 'OBJECTIVE_DELTA')">📡 Delta (-40, 50)</button>
-          <button class="btn btn-dest" id="btn-dest-echo" onclick="sendDestination(70, -35, 12, 'OBSERVATION_ECHO')">🔭 Echo (70, -35)</button>
-          <button class="btn btn-dest" id="btn-land-hangar" onclick="sendLandOnSurface(110, 0, 'HANGAR_ALPHA_ROOF')" style="background: rgba(16,185,129,0.18); border-color: #10b981; color: #10b981; font-weight: 700;">🏭 Land Hangar Roof (7m)</button>
-          <button class="btn btn-dest" id="btn-land-radar" onclick="sendLandOnSurface(-40, 62, 'RADAR_BUNKER_DECK')" style="background: rgba(139,92,246,0.18); border-color: #8b5cf6; color: #c084fc; font-weight: 700;">📡 Land Radar Deck (3.2m)</button>
-          <div class="click-hint-badge">💡 Click Ground / Roof to Route</div>
+        <div style="font-size: 0.68rem; color: #94a3b8; margin: 10px 0 6px 0; font-weight: 600;">ROOFTOP HELIPADS (ELEVATED TOUCHDOWN):</div>
+        <div class="popover-grid">
+          <button class="dock-btn" id="btn-land-hangar" onclick="sendLandOnSurface(110, 0, 'HANGAR_ALPHA_ROOF'); closeAllPopovers();" style="border-color: rgba(16,185,129,0.5); color: #6ee7b7;">🏭 Hangar Roof (Elev 7.35m)</button>
+          <button class="dock-btn" id="btn-land-radar" onclick="sendLandOnSurface(-40, 62, 'RADAR_BUNKER_DECK'); closeAllPopovers();" style="border-color: rgba(139,92,246,0.5); color: #c084fc;">📡 Radar Bunker (Elev 3.55m)</button>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.66rem; color: var(--accent-gold); font-family: 'JetBrains Mono', monospace; text-align: center;">
+          💡 Click anywhere on Ground or Rooftops in 3D to route directly
         </div>
       </div>
 
-      <!-- Attack Triggers & Camera Perspectives -->
-      <div class="bottom-bar">
-        <!-- Attack Triggers -->
-        <div class="glass-panel controls-panel hud-interactive">
-          <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); margin-right: 4px;">⚡ CYBER INJECTION:</span>
-          <button class="btn btn-attack" onclick="triggerAttack('gps_spoofing', 25.0)">🛰️ GPS Spoofing</button>
-          <button class="btn btn-attack" onclick="triggerAttack('imu_manipulation', 2.5)">🎯 IMU Bias</button>
-          <button class="btn btn-attack" onclick="triggerAttack('lidar_corruption', 7.0)">📏 LiDAR Tamper</button>
-          <button class="btn btn-attack" onclick="triggerAttack('multi_attack', 20.0)">⚔️ Coordinated</button>
-          <button class="btn btn-safe" onclick="clearAttacks()">🛡️ Clear / Nominal</button>
+      <!-- Popover: Cyber Injection Simulator -->
+      <div id="cyber-popover" class="dock-popover hud-interactive" style="width: 380px; left: 50%; transform: translateX(-50%);">
+        <div class="popover-header">
+          <span style="color: #fca5a5;">⚡ CYBER INJECTION ATTACK SUITE</span>
+          <button class="modal-close-btn" style="width: 20px; height: 20px; font-size: 0.75rem;" onclick="closeAllPopovers()">✕</button>
+        </div>
+        <div class="popover-grid">
+          <button class="dock-btn dock-btn-attack" onclick="triggerAttack('gps_spoofing', 25.0); closeAllPopovers();">🛰️ GPS Spoof (+25m)</button>
+          <button class="dock-btn dock-btn-attack" onclick="triggerAttack('imu_manipulation', 2.5); closeAllPopovers();">🎯 IMU Bias (+2.5 m/s²)</button>
+          <button class="dock-btn dock-btn-attack" onclick="triggerAttack('lidar_corruption', 7.0); closeAllPopovers();">📏 LiDAR Tamper (+7m)</button>
+          <button class="dock-btn dock-btn-attack" onclick="triggerAttack('multi_attack', 20.0); closeAllPopovers();">⚔️ Coordinated Multi-Vector</button>
+        </div>
+        <button class="dock-btn dock-btn-flight" style="width: 100%; margin-top: 8px; justify-content: center;" onclick="clearAttacks(); closeAllPopovers();">
+          🛡️ Clear Injections & Restore Nominal
+        </button>
+      </div>
+
+      <!-- Popover: Swift Camera Views -->
+      <div id="swift-popover" class="dock-popover hud-interactive" style="width: 320px; right: 14px;">
+        <div class="popover-header">
+          <span>🔭 SWIFT CAMERA VIEW TO</span>
+          <button class="modal-close-btn" style="width: 20px; height: 20px; font-size: 0.75rem;" onclick="closeAllPopovers()">✕</button>
+        </div>
+        <div class="popover-grid">
+          <button class="dock-btn" onclick="glideToPosition(0, 0, 'Base Alpha'); closeAllPopovers();">🏠 Base Alpha</button>
+          <button class="dock-btn" onclick="glideToPosition(45, 30, 'Outpost Charlie'); closeAllPopovers();">🏢 Outpost Charlie</button>
+          <button class="dock-btn" onclick="glideToPosition(-40, 50, 'Objective Delta'); closeAllPopovers();">📡 Objective Delta</button>
+          <button class="dock-btn" onclick="glideToPosition(70, -35, 'Observation Echo'); closeAllPopovers();">🔭 Observation Echo</button>
+          <button class="dock-btn" onclick="glideToPosition(110, 0, 'Hangar Alpha'); closeAllPopovers();">🏭 Hangar Alpha</button>
+          <button class="dock-btn" onclick="glideToOverview(); closeAllPopovers();">🌐 Airfield Overview</button>
+        </div>
+      </div>
+
+      <!-- Central Floating Control Dock -->
+      <div class="bottom-dock hud-interactive">
+        <!-- Target Mission Status Pill -->
+        <div class="dock-status-pill" id="target-status-badge" title="Target Mission Status">
+          <span style="font-size: 0.85rem;">🎯</span>
+          <span id="target-mode-name" style="font-weight: 700; color: var(--accent-cyan);">PERIMETER PATROL</span>
+          <span id="target-dist-val" style="color: var(--accent-gold); font-weight: 700;">0.0 m</span>
+          <span id="flight-phase-txt" style="color: #10b981; font-weight: 800; background: rgba(16,185,129,0.18); padding: 1px 6px; border-radius: 10px;">CRUISE</span>
+          <!-- Hidden coordinate span preserved for telemetry scripts -->
+          <span id="target-coords-txt" style="display: none;">[0, 0, 12m]</span>
         </div>
 
-        <!-- Camera Perspectives & Fast View Shifting -->
-        <div class="glass-panel controls-panel hud-interactive">
-          <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); margin-right: 4px;">🎥 CAM:</span>
-          <button class="btn btn-view active" id="btn-cam-track" onclick="setCameraMode('track')" title="Auto-track drone with free orbit & zoom (Space)">🛸 Track Drone</button>
-          <button class="btn btn-view" id="btn-cam-goal" onclick="setCameraMode('goal')" title="Glide camera to current destination beacon (F)">🎯 Focus Goal</button>
-          <button class="btn btn-view" id="btn-cam-orbit" onclick="setCameraMode('orbit')" title="Free 3D orbit around center">Orbit 3D</button>
-          <button class="btn btn-view" id="btn-cam-chase" onclick="setCameraMode('chase')" title="3rd-person trailing chase cam">Chase</button>
-          <button class="btn btn-view" id="btn-cam-fpv" onclick="setCameraMode('fpv')" title="1st-person nose cockpit view">FPV</button>
-          <button class="btn btn-view" id="btn-cam-top" onclick="setCameraMode('top')" title="Top-down tactical satellite view">Top Down</button>
-          
-          <span style="border-left: 1px solid rgba(255,255,255,0.18); height: 18px; margin: 0 4px;"></span>
-          <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); margin-right: 2px;">SWIFT TO:</span>
-          <button class="btn btn-cam-chip" onclick="glideToPosition(0, 0, 'Base Alpha')" title="Glide camera to Base Alpha">🏠 Base</button>
-          <button class="btn btn-cam-chip" onclick="glideToPosition(45, 30, 'Outpost Charlie')" title="Glide to Outpost Charlie">🏢 Charlie</button>
-          <button class="btn btn-cam-chip" onclick="glideToPosition(-40, 50, 'Objective Delta')" title="Glide to Objective Delta">📡 Delta</button>
-          <button class="btn btn-cam-chip" onclick="glideToPosition(70, -35, 'Observation Echo')" title="Glide to Observation Echo">🔭 Echo</button>
-          <button class="btn btn-cam-chip" onclick="glideToPosition(110, 0, 'Hangar Alpha')" title="Glide to Hangar Alpha">🏭 Hangar</button>
-          <button class="btn btn-cam-chip" onclick="glideToOverview()" title="Airfield Tactical Overview">🌐 Overview</button>
-        </div>
+        <div class="dock-divider"></div>
+
+        <!-- Flight Commands -->
+        <button class="dock-btn dock-btn-flight" onclick="sendTakeoff()" title="Takeoff to 12m Cruise Alt">🛫 Takeoff</button>
+        <button class="dock-btn dock-btn-rtl" onclick="sendLand()" title="Land immediately">🛬 Land</button>
+        <button class="dock-btn dock-btn-rtl" onclick="sendRTL()" title="Return to Launch and Land">🏠 RTL</button>
+        <button class="dock-btn dock-btn-flight" onclick="sendPatrol()" title="Resume Perimeter Patrol">🔄 Patrol</button>
+
+        <div class="dock-divider"></div>
+
+        <!-- Dispatch Popover Trigger -->
+        <button class="dock-btn" id="btn-dock-dispatch" onclick="toggleDockPopover('dispatch-popover')" title="Open Destination Dispatch Menu">📍 Dispatch ▾</button>
+
+        <!-- Cyber Injections Popover Trigger -->
+        <button class="dock-btn dock-btn-attack" id="btn-dock-cyber" onclick="toggleDockPopover('cyber-popover')" title="Inject Cyber Attacks">⚡ Attack Sim ▾</button>
+
+        <div class="dock-divider"></div>
+
+        <!-- Camera Modes Group -->
+        <button class="dock-btn active" id="btn-cam-track" onclick="setCameraMode('track')" title="Auto-track Drone in 3D (Space)">🛸 Track</button>
+        <button class="dock-btn" id="btn-cam-goal" onclick="setCameraMode('goal')" title="Focus Destination Goal (F)">🎯 Goal</button>
+        <button class="dock-btn" id="btn-cam-fpv" onclick="setCameraMode('fpv')" title="Cockpit 1st-Person FPV View">🎥 FPV</button>
+        <button class="dock-btn" id="btn-cam-top" onclick="setCameraMode('top')" title="Top-Down Satellite View">🧭 Top</button>
+        <button class="dock-btn" id="btn-cam-orbit" onclick="setCameraMode('orbit')" title="Free Orbit 3D">🌐 Orbit</button>
+        <button class="dock-btn" id="btn-cam-chase" onclick="setCameraMode('chase')" style="display: none;">Chase</button>
+
+        <!-- Swift View Popover Trigger -->
+        <button class="dock-btn" id="btn-dock-swift" onclick="toggleDockPopover('swift-popover')" title="Swift Camera to Key Sectors">🔭 Swift ▾</button>
       </div>
 
     </div>
@@ -2170,6 +2374,17 @@
       const isUnderActiveAttack = (data.chi2_attack_state !== "NORMAL") || (nisVal > 11.34) || (mlClass !== "NORMAL");
       const isDegraded = (navMode !== "NORMAL_MISSION");
 
+      const dockCyberBtn = document.getElementById('btn-dock-cyber');
+      if (dockCyberBtn) {
+        if (isUnderActiveAttack) {
+          dockCyberBtn.classList.add('has-active');
+          dockCyberBtn.innerHTML = '🚨 Attack Active ▾';
+        } else {
+          dockCyberBtn.classList.remove('has-active');
+          dockCyberBtn.innerHTML = '⚡ Attack Sim ▾';
+        }
+      }
+
       if (isUnderActiveAttack) {
         if (!wasUnderAttack) playTacticalTone('attack');
         badge.className = 'mode-indicator attack';
@@ -2303,9 +2518,64 @@
         modal.style.display = (modal.style.display === 'block') ? 'none' : 'block';
         if (modal.style.display === 'block') {
           document.getElementById('settings-modal').style.display = 'none';
+          closeAllPopovers();
         }
       }
     }
+
+    // -------------------------------------------------------------
+    // Cockpit UI State Management: Zen View, Side Panels & Popovers
+    // -------------------------------------------------------------
+    let isZenMode = false;
+    function toggleZenMode() {
+      isZenMode = !isZenMode;
+      const hud = document.querySelector('.hud-layer');
+      const btn = document.getElementById('btn-zen');
+      if (isZenMode) {
+        hud.classList.add('zen-mode');
+        if (btn) btn.classList.add('active');
+        closeAllPopovers();
+        showToast('👁️ ZEN VIEW: Full 3D Flight Immersion (Press Z or Click Banner to restore)');
+      } else {
+        hud.classList.remove('zen-mode');
+        if (btn) btn.classList.remove('active');
+      }
+      playTacticalTone('click');
+    }
+
+    function toggleSidePanel(side) {
+      const panel = document.getElementById(`side-panel-${side}`);
+      const btn = document.getElementById(`panel-toggle-btn-${side}`);
+      if (panel) {
+        panel.classList.toggle('collapsed');
+        const isCollapsed = panel.classList.contains('collapsed');
+        if (btn) btn.innerText = isCollapsed ? '+' : '−';
+        playTacticalTone('click');
+      }
+    }
+
+    function toggleDockPopover(popoverId) {
+      const target = document.getElementById(popoverId);
+      if (!target) return;
+      const isAlreadyOpen = (target.style.display === 'block');
+      closeAllPopovers();
+      if (!isAlreadyOpen) {
+        target.style.display = 'block';
+      }
+      playTacticalTone('click');
+    }
+
+    function closeAllPopovers() {
+      document.querySelectorAll('.dock-popover').forEach(p => p.style.display = 'none');
+    }
+
+    // Auto-close popovers when clicking outside the bottom dock
+    document.addEventListener('pointerdown', (e) => {
+      const dockWrapper = document.querySelector('.bottom-dock-wrapper');
+      if (dockWrapper && !dockWrapper.contains(e.target)) {
+        closeAllPopovers();
+      }
+    });
 
     // -------------------------------------------------------------
     // Web Audio API Synthesizer (Realistic Tactical Sound Effects)
@@ -2403,6 +2673,7 @@
         modal.style.display = isOpening ? 'block' : 'none';
         if (isOpening) {
           document.getElementById('benchmark-modal').style.display = 'none';
+          closeAllPopovers();
           fetchSettingsFromServer();
         }
         playTacticalTone('click');
@@ -2560,7 +2831,17 @@
     // Keyboard Hotkeys
     window.addEventListener('keydown', (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-      if (e.code === 'Space') {
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        toggleZenMode();
+      } else if (e.code === 'Tab') {
+        e.preventDefault();
+        toggleZenMode();
+      } else if (e.key === 'Escape') {
+        closeAllPopovers();
+        document.getElementById('benchmark-modal').style.display = 'none';
+        document.getElementById('settings-modal').style.display = 'none';
+      } else if (e.code === 'Space') {
         e.preventDefault();
         setCameraMode('track');
       } else if (e.key === 'f' || e.key === 'F') {
