@@ -73,6 +73,13 @@ class TelemetryIngestPacket(BaseModel):
     sensor_trust: Dict[str, float]
 
 
+class SetDestinationRequest(BaseModel):
+    x: float = Field(..., description="East target coordinate (meters)")
+    y: float = Field(..., description="North target coordinate (meters)")
+    z: Optional[float] = Field(default=12.0, description="Altitude (meters)")
+    label: Optional[str] = Field(default="TARGET_OBJECTIVE", description="Destination label")
+
+
 class TelemetryPacket(BaseModel):
     model_config = {"extra": "allow"}
     timestamp: str
@@ -96,6 +103,11 @@ class TelemetryPacket(BaseModel):
     current_waypoint: Optional[str] = "WP-1/4"
     lat_wgs84: Optional[float] = 37.774929
     lon_wgs84: Optional[float] = -122.419416
+    mission_type: Optional[str] = "patrol"
+    target_goal: Optional[List[float]] = None
+    target_label: Optional[str] = "PERIMETER_PATROL"
+    distance_to_goal: Optional[float] = 0.0
+    planned_waypoints: Optional[List[List[float]]] = None
 
 
 # -------------------------------------------------------------
@@ -114,7 +126,7 @@ class SystemStateManager:
         self.ekf.initialize_state(position=np.array([0.0, 0.0, self.cruise_altitude]), velocity=np.array([0.0, 0.0, 0.0]))
         self.detector = ResidualDetectorEngine()
         self.resilience = ResilienceManagerEngine()
-        self.planner = AStarPlanner(x_bounds=(-35.0, 35.0), y_bounds=(-35.0, 35.0))
+        self.planner = AStarPlanner(x_bounds=(-250.0, 250.0), y_bounds=(-250.0, 250.0), grid_resolution=1.0)
 
         # Physical Drone State
         self.drone_pos = np.array([0.0, 0.0, self.cruise_altitude], dtype=np.float64)
@@ -123,7 +135,10 @@ class SystemStateManager:
         self.pitch_deg = 0.0
         self.yaw_deg = 0.0
 
-        # Mission Waypoints (Square Patrol Corridor at 12m Cruise Altitude)
+        # Mission Waypoints & Destination Targeting
+        self.mission_type = "patrol"  # "patrol" or "target_point"
+        self.target_goal = None
+        self.target_label = "PERIMETER_PATROL"
         self.waypoints = [
             np.array([0.0, 0.0, self.cruise_altitude]),
             np.array([24.0, 0.0, self.cruise_altitude]),
@@ -162,8 +177,46 @@ class SystemStateManager:
             "current_waypoint": "WP-1/4",
             "battery_pct": 98.5,
             "lat_wgs84": 37.774929,
-            "lon_wgs84": -122.419416
+            "lon_wgs84": -122.419416,
+            "mission_type": "patrol",
+            "target_goal": None,
+            "target_label": "PERIMETER_PATROL",
+            "distance_to_goal": 0.0,
+            "planned_waypoints": [[0.0, 0.0, 12.0], [24.0, 0.0, 12.0], [24.0, 24.0, 12.0], [0.0, 24.0, 12.0], [0.0, 0.0, 12.0]]
         }
+
+    def set_destination(self, x: float, y: float, z: Optional[float] = None, label: str = "CUSTOM_OBJECTIVE"):
+        """Sets an arbitrary target destination point and plans path to reach it."""
+        alt = float(z) if z is not None else self.cruise_altitude
+        goal = np.array([float(x), float(y), alt], dtype=np.float64)
+        self.target_goal = goal
+        self.target_label = label
+        self.mission_type = "target_point"
+
+        # Plan trajectory using A* Planner around obstacles
+        start_pt = tuple(float(v) for v in self.drone_pos)
+        goal_pt = tuple(float(v) for v in goal)
+        planned = self.planner.plan(start_pt, goal_pt)
+        if planned and len(planned) > 1:
+            self.waypoints = [np.array(wp, dtype=np.float64) for wp in planned]
+            self.current_wp_idx = 1
+        else:
+            self.waypoints = [np.copy(self.drone_pos), goal]
+            self.current_wp_idx = 1
+
+    def set_patrol_mode(self):
+        """Restores continuous 4-waypoint reconnaissance perimeter patrol."""
+        self.mission_type = "patrol"
+        self.target_goal = None
+        self.target_label = "PERIMETER_PATROL"
+        self.waypoints = [
+            np.array([0.0, 0.0, self.cruise_altitude]),
+            np.array([24.0, 0.0, self.cruise_altitude]),
+            np.array([24.0, 24.0, self.cruise_altitude]),
+            np.array([0.0, 24.0, self.cruise_altitude]),
+            np.array([0.0, 0.0, self.cruise_altitude])
+        ]
+        self.current_wp_idx = 1
 
     def reset_nominal(self):
         """Immediately restores nominal operational state and clears all attack traces."""
@@ -277,8 +330,13 @@ class SystemStateManager:
                 dist_xy = math.hypot(diff_xy[0], diff_xy[1])
                 speed = 2.8 * self.resilience.speed_factor  # 2.8 m/s normal, ~1.8 m/s degraded
 
-                if dist_xy < 2.0:
-                    self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
+                is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
+                if dist_xy < 1.5:
+                    if self.mission_type == "target_point" and is_final_wp:
+                        # Precision hover at target goal coordinate
+                        self.drone_vel = np.array([0.0, 0.0, 0.0])
+                    else:
+                        self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
                 else:
                     vel_dir_xy = diff_xy / (dist_xy + 1e-6)
                     self.drone_vel = np.array([vel_dir_xy[0] * speed, vel_dir_xy[1] * speed, 0.0])
@@ -392,13 +450,18 @@ class SystemStateManager:
             classes = {0: "NORMAL", 1: "GPS_SPOOFING", 2: "IMU_MANIPULATION", 3: "LIDAR_CORRUPTION"}
             ml_label = classes.get(pidx, "NORMAL")
             ml_confidence = float(probs[pidx])
-            classes = {0: "NORMAL", 1: "GPS_SPOOFING", 2: "IMU_MANIPULATION", 3: "LIDAR_CORRUPTION"}
-            ml_label = classes.get(pidx, "NORMAL")
-            ml_confidence = float(probs[pidx])
 
         # 10. Update Live Telemetry Packet Buffer
         chi2_state = det_res["state"] if isinstance(det_res["state"], str) else det_res["state"].value
         g_speed = float(math.hypot(est_state["velocity"][0], est_state["velocity"][1]))
+
+        dist_to_goal = 0.0
+        if self.target_goal is not None:
+            dist_to_goal = math.hypot(self.target_goal[0] - est_state["position"][0], self.target_goal[1] - est_state["position"][1])
+        else:
+            cur_wp = self.waypoints[min(self.current_wp_idx, len(self.waypoints) - 1)]
+            dist_to_goal = math.hypot(cur_wp[0] - est_state["position"][0], cur_wp[1] - est_state["position"][1])
+
         self.current_state = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "position_enu": [round(float(v), 3) for v in est_state["position"]],
@@ -417,10 +480,15 @@ class SystemStateManager:
             "active_sensors": res_policy["active_sensors"],
             "isolated_sensors": res_policy["isolated_sensors"],
             "sensor_trust": {k: round(float(v), 2) for k, v in res_policy["trust_scores"].items()},
-            "current_waypoint": f"WP-{self.current_wp_idx + 1}/4",
+            "current_waypoint": f"WP-{self.current_wp_idx + 1}/{len(self.waypoints)}",
             "battery_pct": round(max(15.0, 99.0 - 0.005 * (time.time() - self.start_time)), 1),
             "lat_wgs84": round(37.774929 + est_state["position"][1] / 111319.5, 6),
-            "lon_wgs84": round(-122.419416 + est_state["position"][0] / (111319.5 * math.cos(math.radians(37.774929))), 6)
+            "lon_wgs84": round(-122.419416 + est_state["position"][0] / (111319.5 * math.cos(math.radians(37.774929))), 6),
+            "mission_type": self.mission_type,
+            "target_goal": [round(float(v), 2) for v in self.target_goal] if self.target_goal is not None else None,
+            "target_label": self.target_label,
+            "distance_to_goal": round(float(dist_to_goal), 2),
+            "planned_waypoints": [[round(float(c), 2) for c in wp] for wp in self.waypoints]
         }
 
     def get_latest_telemetry(self) -> Dict:
@@ -570,6 +638,37 @@ def clear_attack():
     return {
         "status": "ATTACK_CLEARED",
         "navigation_mode": "NORMAL_MISSION",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.post("/navigation/destination", tags=["Navigation"])
+def set_mission_destination(req: SetDestinationRequest):
+    state_manager.set_destination(req.x, req.y, req.z, req.label)
+    return {
+        "status": "DESTINATION_SET",
+        "target": [req.x, req.y, req.z],
+        "label": req.label,
+        "waypoints_count": len(state_manager.waypoints),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.post("/navigation/patrol", tags=["Navigation"])
+def set_patrol_corridor():
+    state_manager.set_patrol_mode()
+    return {
+        "status": "PATROL_CORRIDOR_SET",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.post("/navigation/rtl", tags=["Navigation"])
+def return_to_launch():
+    state_manager.set_destination(0.0, 0.0, state_manager.cruise_altitude, "BASE_ALPHA_RTL")
+    return {
+        "status": "RTL_INITIATED",
+        "target": [0.0, 0.0, state_manager.cruise_altitude],
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 

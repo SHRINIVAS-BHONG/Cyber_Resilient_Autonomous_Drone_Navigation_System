@@ -12,13 +12,14 @@
   <style>
     :root {
       --bg: #070b14;
-      --card-bg: rgba(13, 20, 36, 0.85);
+      --card-bg: rgba(13, 20, 36, 0.88);
       --card-border: rgba(56, 189, 248, 0.25);
       --accent-cyan: #38bdf8;
       --accent-green: #10b981;
       --accent-red: #ef4444;
       --accent-amber: #f59e0b;
       --accent-purple: #8b5cf6;
+      --accent-gold: #facc15;
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
     }
@@ -36,6 +37,7 @@
       top: 0; left: 0;
       width: 100%; height: 100%;
       z-index: 1;
+      cursor: crosshair;
     }
 
     /* Glassmorphism HUD Panels */
@@ -48,7 +50,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 16px;
+      padding: 14px 16px;
     }
     .hud-interactive { pointer-events: auto; }
     .glass-panel {
@@ -58,7 +60,7 @@
       border: 1px solid var(--card-border);
       border-radius: 14px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.12);
-      padding: 14px 18px;
+      padding: 12px 16px;
     }
 
     /* Top Status Bar */
@@ -74,7 +76,7 @@
       gap: 12px;
     }
     .brand-title h1 {
-      font-size: 1.15rem;
+      font-size: 1.12rem;
       font-weight: 800;
       letter-spacing: 0.5px;
       background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
@@ -84,7 +86,7 @@
     .drone-badge {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.72rem;
-      padding: 4px 8px;
+      padding: 3px 8px;
       border-radius: 6px;
       background: rgba(56, 189, 248, 0.15);
       border: 1px solid rgba(56, 189, 248, 0.4);
@@ -95,7 +97,7 @@
       align-items: center;
       gap: 8px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 700;
       padding: 6px 14px;
       border-radius: 20px;
@@ -123,15 +125,15 @@
       align-items: center;
       justify-content: center;
       gap: 12px;
-      background: rgba(239, 68, 68, 0.9);
+      background: rgba(239, 68, 68, 0.92);
       color: #fff;
       font-weight: 700;
-      font-size: 0.95rem;
-      padding: 10px 24px;
+      font-size: 0.92rem;
+      padding: 8px 24px;
       border-radius: 30px;
       box-shadow: 0 0 25px rgba(239, 68, 68, 0.8);
-      margin: 8px auto 0 auto;
-      max-width: 800px;
+      margin: 6px auto 0 auto;
+      max-width: 820px;
       text-align: center;
       animation: pulseAlert 1.5s infinite alternate;
     }
@@ -147,17 +149,19 @@
       align-items: flex-start;
       gap: 16px;
       flex: 1;
-      padding: 12px 0;
+      padding: 10px 0;
+      pointer-events: none;
     }
     .side-panel {
-      width: 310px;
+      width: 300px;
       display: flex;
       flex-direction: column;
       gap: 12px;
+      pointer-events: auto;
     }
 
     .card-title {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.8px;
@@ -172,7 +176,7 @@
     .pfd-container {
       position: relative;
       width: 100%;
-      height: 110px;
+      height: 105px;
       background: #030712;
       border-radius: 8px;
       overflow: hidden;
@@ -202,13 +206,6 @@
       background: #ffffff;
       box-shadow: 0 0 4px #ffffff;
     }
-    .pitch-ladder {
-      position: absolute;
-      width: 40px;
-      height: 60px;
-      border-left: 2px solid rgba(255,255,255,0.7);
-      border-right: 2px solid rgba(255,255,255,0.7);
-    }
     .aircraft-symbol {
       position: absolute;
       width: 32px;
@@ -230,44 +227,44 @@
     .kpi-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
     }
     .kpi-card {
       background: rgba(2, 6, 23, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 8px;
-      padding: 8px 10px;
+      padding: 7px 9px;
     }
     .kpi-label {
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       color: var(--text-secondary);
     }
     .kpi-value {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 1.05rem;
+      font-size: 1.0rem;
       font-weight: 700;
       color: var(--text-primary);
       margin-top: 2px;
     }
-    .kpi-unit { font-size: 0.72rem; color: var(--text-secondary); margin-left: 2px; }
+    .kpi-unit { font-size: 0.7rem; color: var(--text-secondary); margin-left: 2px; }
 
     /* Trust Score Bars */
     .trust-group {
       display: flex;
       flex-direction: column;
-      gap: 7px;
+      gap: 6px;
     }
     .trust-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
+      font-size: 0.74rem;
     }
     .progress-bar-bg {
-      width: 110px;
+      width: 105px;
       height: 8px;
       background: rgba(255,255,255,0.08);
       border-radius: 4px;
@@ -280,12 +277,28 @@
       transition: width 0.3s ease, background-color 0.3s ease;
     }
 
-    /* Attack Injection Console */
+    /* Live Scope Canvas */
+    #nis-canvas {
+      width: 100%;
+      height: 48px;
+      background: #020617;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      margin-top: 5px;
+    }
+
+    /* Bottom Control Stacks */
+    .bottom-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
     .bottom-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .controls-panel {
       display: flex;
@@ -295,16 +308,16 @@
     }
     .btn {
       font-family: 'Outfit', sans-serif;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 600;
-      padding: 8px 14px;
+      padding: 7px 13px;
       border-radius: 8px;
       cursor: pointer;
       border: 1px solid transparent;
       transition: all 0.2s ease;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
     .btn:active { transform: scale(0.96); }
     .btn-attack {
@@ -327,6 +340,32 @@
       color: #fff;
       box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
     }
+    .btn-dest {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+    }
+    .btn-dest:hover {
+      background: rgba(56, 189, 248, 0.3);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    }
+    .btn-dest.active {
+      background: rgba(56, 189, 248, 0.4);
+      border-color: #38bdf8;
+      color: #fff;
+      font-weight: 700;
+    }
+    .btn-rtl {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fcd34d;
+    }
+    .btn-rtl:hover {
+      background: rgba(245, 158, 11, 0.35);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+    }
     .btn-view {
       background: rgba(56, 189, 248, 0.12);
       border-color: rgba(56, 189, 248, 0.3);
@@ -338,14 +377,36 @@
       font-weight: 700;
     }
 
-    /* Live Scope Canvas */
-    #nis-canvas {
-      width: 100%;
-      height: 52px;
-      background: #020617;
+    /* Target Goal Status Badge */
+    .target-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.76rem;
+      color: #38bdf8;
+    }
+
+    .click-hint-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--accent-gold);
+      background: rgba(250, 204, 21, 0.1);
+      border: 1px dashed rgba(250, 204, 21, 0.4);
+      padding: 5px 10px;
       border-radius: 6px;
-      border: 1px solid rgba(56, 189, 248, 0.2);
-      margin-top: 6px;
+      animation: hintGlow 2.5s infinite alternate;
+    }
+    @keyframes hintGlow {
+      0% { opacity: 0.75; }
+      100% { opacity: 1.0; box-shadow: 0 0 10px rgba(250, 204, 21, 0.25); }
     }
 
     /* Dual Trail Legend */
@@ -362,7 +423,32 @@
     }
     .legend-item { display: flex; align-items: center; gap: 6px; }
     .line-cyan { width: 18px; height: 3px; background: #38bdf8; box-shadow: 0 0 6px #38bdf8; border-radius: 2px; }
+    .line-gold { width: 18px; height: 3px; background: #facc15; box-shadow: 0 0 6px #facc15; border-radius: 2px; }
     .line-red { width: 18px; height: 3px; background: #ef4444; box-shadow: 0 0 6px #ef4444; border-radius: 2px; border: 1px dashed #ef4444; }
+
+    /* Tactical Toast Popups */
+    .tactical-toast {
+      position: absolute;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(14, 165, 233, 0.95);
+      color: #030712;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 800;
+      padding: 8px 22px;
+      border-radius: 25px;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.8);
+      z-index: 2000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .tactical-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(5px);
+    }
 
     /* Slide-over Benchmark & Verification Modal */
     .benchmark-modal {
@@ -426,6 +512,9 @@
   <!-- WebGL Three.js Container -->
   <div id="canvas-container"></div>
 
+  <!-- Tactical Toast Notification -->
+  <div id="tactical-toast" class="tactical-toast">🎯 TARGET DISPATCHED</div>
+
   <!-- HUD Layer -->
   <div class="hud-layer">
     
@@ -437,7 +526,7 @@
           <h1>CYBER-RESILIENT AUTONOMOUS DRONE</h1>
           <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
             <span class="drone-badge">PX4 SITL + 10-DOF EKF</span>
-            <span style="font-size: 0.72rem; color: var(--text-secondary);">Real-Time 10 Hz State Space GCS</span>
+            <span style="font-size: 0.72rem; color: var(--text-secondary);">400m Tactical Proving Ground • 10 Hz Real-Time Loop</span>
           </div>
         </div>
       </div>
@@ -446,6 +535,10 @@
         <div class="legend-item">
           <div class="line-cyan"></div>
           <span>PROTECTED REAL FLIGHT (EKF + VO)</span>
+        </div>
+        <div class="legend-item">
+          <div class="line-gold"></div>
+          <span>A* PLANNED TRAJECTORY</span>
         </div>
         <div class="legend-item">
           <div class="line-red"></div>
@@ -590,12 +683,12 @@
               <div class="kpi-value"><span id="val-yaw">090</span><span class="kpi-unit">°</span></div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">Active Waypoint</div>
-              <div class="kpi-value"><span id="val-wp">WP-2</span><span class="kpi-unit">/ 4</span></div>
+              <div class="kpi-label">Waypoint / Phase</div>
+              <div class="kpi-value"><span id="val-wp" style="font-size: 0.88rem;">WP-2/4</span></div>
             </div>
           </div>
 
-          <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.73rem; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+          <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
             <div style="display: flex; justify-content: space-between; color: var(--accent-cyan);">
               <span>EKF Position:</span>
               <span id="val-pos-ekf">[0.0, 0.0, 12.0]</span>
@@ -650,15 +743,15 @@
             </div>
           </div>
 
-          <div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+          <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
             <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;">
               <span style="color: var(--text-secondary);">GPS NIS Residual (Gate: 11.34):</span>
               <span id="val-nis" style="color: var(--accent-cyan); font-weight: 700;">0.45</span>
             </div>
-            <canvas id="nis-canvas" width="280" height="50"></canvas>
+            <canvas id="nis-canvas" width="270" height="48"></canvas>
           </div>
 
-          <div style="margin-top: 8px; display: flex; justify-content: space-between; font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;">
+          <div style="margin-top: 6px; display: flex; justify-content: space-between; font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;">
             <span style="color: var(--text-secondary);">ML Attack Classifier:</span>
             <span id="val-ml-class" style="color: #10b981; font-weight: 700;">NORMAL (99%)</span>
           </div>
@@ -666,26 +759,58 @@
       </div>
     </div>
 
-    <!-- Bottom Controls & Camera Modes -->
-    <div class="bottom-bar">
-      <!-- Attack Triggers -->
-      <div class="glass-panel controls-panel hud-interactive">
-        <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); margin-right: 4px;">⚡ ATTACK INJECTION:</span>
-        <button class="btn btn-attack" onclick="triggerAttack('gps_spoofing', 25.0)">🛰️ GPS Spoofing</button>
-        <button class="btn btn-attack" onclick="triggerAttack('imu_manipulation', 2.5)">🎯 IMU Bias</button>
-        <button class="btn btn-attack" onclick="triggerAttack('lidar_corruption', 7.0)">📏 LiDAR Tamper</button>
-        <button class="btn btn-attack" onclick="triggerAttack('multi_attack', 20.0)">⚔️ Coordinated</button>
-        <button class="btn btn-safe" onclick="clearAttacks()">🛡️ Clear / Nominal</button>
+    <!-- Bottom Stack: Destination Mission Controls + Attack Console -->
+    <div class="bottom-stack">
+      
+      <!-- Operator Path & Destination Planning Bar -->
+      <div class="glass-panel hud-interactive bottom-bar" style="padding: 10px 16px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 1.05rem;">🎯</span>
+            <span style="font-size: 0.78rem; font-weight: 800; color: var(--accent-cyan); letter-spacing: 0.5px;">MISSION DESTINATION:</span>
+          </div>
+          <div id="target-status-badge" class="target-badge">
+            <span id="target-mode-name" style="font-weight: 700;">PERIMETER PATROL</span>
+            <span id="target-coords-txt" style="color: var(--text-secondary); margin-left: 4px;">[0, 0, 12m]</span>
+          </div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--text-secondary);">
+            DIST TO GOAL: <span id="target-dist-val" style="color: var(--accent-cyan); font-weight: 700;">0.0 m</span>
+          </div>
+        </div>
+
+        <div class="controls-panel">
+          <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700;">DISPATCH:</span>
+          <button class="btn btn-dest" id="btn-dest-charlie" onclick="sendDestination(45, 30, 12, 'OUTPOST_CHARLIE')">🏢 Outpost Charlie (45, 30)</button>
+          <button class="btn btn-dest" id="btn-dest-delta" onclick="sendDestination(-40, 50, 12, 'OBJECTIVE_DELTA')">📡 Obj Delta (-40, 50)</button>
+          <button class="btn btn-dest" id="btn-dest-echo" onclick="sendDestination(70, -35, 12, 'OBSERVATION_ECHO')">🔭 Obs Echo (70, -35)</button>
+          <button class="btn btn-rtl" onclick="sendRTL()">🏠 Return-To-Launch</button>
+          <button class="btn btn-safe" onclick="sendPatrol()">🔄 Resume Patrol</button>
+          <div class="click-hint-badge">💡 Click Ground Tarmac to Route</div>
+        </div>
       </div>
 
-      <!-- Camera Perspectives -->
-      <div class="glass-panel controls-panel hud-interactive">
-        <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-right: 4px;">🎥 VIEW:</span>
-        <button class="btn btn-view active" id="btn-cam-orbit" onclick="setCameraMode('orbit')">Orbit 3D</button>
-        <button class="btn btn-view" id="btn-cam-chase" onclick="setCameraMode('chase')">Chase Cam</button>
-        <button class="btn btn-view" id="btn-cam-fpv" onclick="setCameraMode('fpv')">Cockpit FPV</button>
-        <button class="btn btn-view" id="btn-cam-top" onclick="setCameraMode('top')">Top Down</button>
+      <!-- Attack Triggers & Camera Perspectives -->
+      <div class="bottom-bar">
+        <!-- Attack Triggers -->
+        <div class="glass-panel controls-panel hud-interactive">
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); margin-right: 4px;">⚡ CYBER INJECTION:</span>
+          <button class="btn btn-attack" onclick="triggerAttack('gps_spoofing', 25.0)">🛰️ GPS Spoofing</button>
+          <button class="btn btn-attack" onclick="triggerAttack('imu_manipulation', 2.5)">🎯 IMU Bias</button>
+          <button class="btn btn-attack" onclick="triggerAttack('lidar_corruption', 7.0)">📏 LiDAR Tamper</button>
+          <button class="btn btn-attack" onclick="triggerAttack('multi_attack', 20.0)">⚔️ Coordinated</button>
+          <button class="btn btn-safe" onclick="clearAttacks()">🛡️ Clear / Nominal</button>
+        </div>
+
+        <!-- Camera Perspectives -->
+        <div class="glass-panel controls-panel hud-interactive">
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-right: 4px;">🎥 VIEW:</span>
+          <button class="btn btn-view active" id="btn-cam-orbit" onclick="setCameraMode('orbit')">Orbit 3D</button>
+          <button class="btn btn-view" id="btn-cam-chase" onclick="setCameraMode('chase')">Chase Cam</button>
+          <button class="btn btn-view" id="btn-cam-fpv" onclick="setCameraMode('fpv')">Cockpit FPV</button>
+          <button class="btn btn-view" id="btn-cam-top" onclick="setCameraMode('top')">Top Down</button>
+        </div>
       </div>
+
     </div>
   </div>
 
@@ -697,10 +822,10 @@
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x060913);
-    scene.fog = new THREE.FogExp2(0x060913, 0.007);
+    scene.fog = new THREE.FogExp2(0x060913, 0.0035);
 
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(38, 28, 38);
+    const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1200);
+    camera.position.set(48, 36, 48);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -712,68 +837,72 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.target.set(12, 10, 12);
-    controls.maxPolarAngle = Math.PI / 2 - 0.03; // Don't clip ground
+    controls.target.set(16, 8, 16);
+    controls.maxDistance = 500;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't clip ground
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
-    sunLight.position.set(40, 60, 20);
+    const sunLight = new THREE.DirectionalLight(0x38bdf8, 1.3);
+    sunLight.position.set(60, 90, 40);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 400;
+    sunLight.shadow.camera.left = -150;
+    sunLight.shadow.camera.right = 150;
+    sunLight.shadow.camera.top = 150;
+    sunLight.shadow.camera.bottom = -150;
     scene.add(sunLight);
 
-    const accentLight = new THREE.PointLight(0x818cf8, 1.5, 100);
-    accentLight.position.set(12, 20, 12);
+    const accentLight = new THREE.PointLight(0x818cf8, 1.8, 160);
+    accentLight.position.set(20, 30, 20);
     scene.add(accentLight);
 
     // -------------------------------------------------------------
-    // Airfield & Runway Environment Construction
+    // Vast Tactical Proving Ground (400m x 400m Environment)
     // -------------------------------------------------------------
-    // Tactical Ground Grid
-    const gridHelper = new THREE.GridHelper(100, 50, 0x1e293b, 0x0f172a);
+    // Outer Grid
+    const gridHelper = new THREE.GridHelper(400, 80, 0x1e293b, 0x090e1b);
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    // Dark Tarmac Runway
-    const tarmacGeo = new THREE.PlaneGeometry(90, 90);
-    const tarmacMat = new THREE.MeshStandardMaterial({ color: 0x080d1a, roughness: 0.9, metalness: 0.1 });
+    // Dark Tarmac Runway Surface (320m x 320m)
+    const tarmacGeo = new THREE.PlaneGeometry(320, 320);
+    const tarmacMat = new THREE.MeshStandardMaterial({ 
+      color: 0x070c18, 
+      roughness: 0.88, 
+      metalness: 0.12 
+    });
     const tarmac = new THREE.Mesh(tarmacGeo, tarmacMat);
     tarmac.rotation.x = -Math.PI / 2;
     tarmac.receiveShadow = true;
+    tarmac.name = "tactical_tarmac";
     scene.add(tarmac);
 
-    // Primary Launch Pad (0, 0)
-    function createHelipad(x, z, label, color) {
-      const group = new THREE.Group();
-      group.position.set(x, 0.05, z);
-
-      const padGeo = new THREE.CircleGeometry(4.0, 32);
-      const padMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
-      const pad = new THREE.Mesh(padGeo, padMat);
-      pad.rotation.x = -Math.PI / 2;
-      group.add(pad);
-
-      const ringGeo = new THREE.RingGeometry(3.6, 3.9, 32);
-      const ringMat = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
+    // Concentric Range Rings on Ground (50m, 100m, 150m)
+    function createRangeRing(radius, color, label) {
+      const ringGeo = new THREE.RingGeometry(radius - 0.25, radius + 0.25, 128);
+      const ringMat = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.35 });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = -Math.PI / 2;
-      group.add(ring);
-
-      scene.add(group);
-      return group;
+      ring.position.y = 0.02;
+      scene.add(ring);
     }
+    createRangeRing(50, 0x38bdf8, "50m RANGE");
+    createRangeRing(100, 0xf59e0b, "100m RANGE");
+    createRangeRing(150, 0x8b5cf6, "150m RANGE");
 
-    // Tactical Airfield Helipads with Painted Marking Canvas
+    // Tactical Helipad Builder
     function createHelipad(x, z, label, ringColor) {
       const group = new THREE.Group();
       group.position.set(x, 0.05, z);
 
       // Helipad Ground Disc
-      const padGeo = new THREE.CircleGeometry(4.5, 32);
+      const padGeo = new THREE.CircleGeometry(5.0, 32);
       const padMat = new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.85, metalness: 0.15 });
       const pad = new THREE.Mesh(padGeo, padMat);
       pad.rotation.x = -Math.PI / 2;
@@ -781,68 +910,150 @@
       group.add(pad);
 
       // High-Visibility Outer Ring
-      const ringGeo = new THREE.RingGeometry(4.0, 4.3, 32);
+      const ringGeo = new THREE.RingGeometry(4.4, 4.8, 32);
       const ringMat = new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = -Math.PI / 2;
       group.add(ring);
 
+      // Inner Accent Ring
+      const innerRingGeo = new THREE.RingGeometry(2.2, 2.35, 32);
+      const innerRingMat = new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+      const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
+      innerRing.rotation.x = -Math.PI / 2;
+      group.add(innerRing);
+
       // Central "H" Helipad Lettering
-      const hBarGeo = new THREE.PlaneGeometry(0.35, 2.2);
+      const hBarGeo = new THREE.PlaneGeometry(0.4, 2.4);
       const hBarMat = new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide });
       const hLeft = new THREE.Mesh(hBarGeo, hBarMat);
       hLeft.rotation.x = -Math.PI / 2;
-      hLeft.position.set(-0.6, 0.01, 0);
+      hLeft.position.set(-0.7, 0.01, 0);
       group.add(hLeft);
 
       const hRight = new THREE.Mesh(hBarGeo, hBarMat);
       hRight.rotation.x = -Math.PI / 2;
-      hRight.position.set(0.6, 0.01, 0);
+      hRight.position.set(0.7, 0.01, 0);
       group.add(hRight);
 
-      const hCrossGeo = new THREE.PlaneGeometry(1.2, 0.35);
+      const hCrossGeo = new THREE.PlaneGeometry(1.4, 0.4);
       const hCross = new THREE.Mesh(hCrossGeo, hBarMat);
       hCross.rotation.x = -Math.PI / 2;
       hCross.position.set(0, 0.01, 0);
       group.add(hCross);
 
+      // Perimeter Blue/Color LED Beacons
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
+        const lx = Math.cos(angle) * 5.2;
+        const lz = Math.sin(angle) * 5.2;
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshBasicMaterial({ color: ringColor }));
+        beacon.position.set(lx, 0.1, lz);
+        group.add(beacon);
+      }
+
       scene.add(group);
       return group;
     }
 
-    createHelipad(0, 0, "BASE-ALPHA", 0x38bdf8);
-    createHelipad(28, 24, "EMERGENCY-BRAVO", 0x10b981);
+    // Deploy Tactical Field Outposts
+    createHelipad(0, 0, "BASE-ALPHA", 0x38bdf8);             // Primary Home Base Alpha
+    createHelipad(28, 24, "EMERGENCY-BRAVO", 0x10b981);      // Emergency Alternate Landing Zone
+    createHelipad(45, 30, "OUTPOST-CHARLIE", 0x06b6d4);      // Tactical Recon Outpost Charlie
+    createHelipad(-40, 50, "OBJECTIVE-DELTA", 0xf59e0b);     // Forward Depot Delta
+    createHelipad(70, -35, "OBSERVATION-ECHO", 0xa855f7);    // Long-Range Radar Echo
 
-    // Airfield Telemetry & Communications Mast (Positioned safely off-perimeter at -18, -18)
+    // Tactical Installations & Landmark Architecture
+    function createRadarStation(x, z, label) {
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+
+      // Octagonal Bunker Base
+      const bunker = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.2, 5.0, 3.2, 8),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.4 })
+      );
+      bunker.position.y = 1.6;
+      bunker.castShadow = true;
+      group.add(bunker);
+
+      // Geodesic Radar Dome
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(3.2, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.2 })
+      );
+      dome.position.y = 4.8;
+      dome.castShadow = true;
+      group.add(dome);
+
+      // Flashing Obstruction Light
+      const redLight = new THREE.PointLight(0xef4444, 1.8, 30);
+      redLight.position.y = 8.5;
+      group.add(redLight);
+
+      scene.add(group);
+    }
+    createRadarStation(-40, 62, "DELTA-RADAR");
+
+    // Communications Tower
     function createCommTower(x, z) {
       const group = new THREE.Group();
       group.position.set(x, 0, z);
 
-      // Truss Lattice Mast
-      const mastGeo = new THREE.CylinderGeometry(0.4, 0.9, 18, 8);
-      const mastMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
-      const mast = new THREE.Mesh(mastGeo, mastMat);
-      mast.position.y = 9;
+      const mast = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.35, 1.2, 24, 8),
+        new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.2 })
+      );
+      mast.position.y = 12;
+      mast.castShadow = true;
       group.add(mast);
 
       // Radome Head
-      const domeGeo = new THREE.SphereGeometry(1.4, 16, 16);
-      const domeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
-      const dome = new THREE.Mesh(domeGeo, domeMat);
-      dome.position.y = 18.5;
-      group.add(dome);
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(1.6, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 })
+      );
+      head.position.y = 24.5;
+      group.add(head);
 
-      // Aviation Obstruction Flasher Red
-      const obLight = new THREE.PointLight(0xef4444, 2.0, 35);
-      obLight.position.y = 20.2;
-      group.add(obLight);
+      // Parabolic Dish
+      const dish = new THREE.Mesh(
+        new THREE.SphereGeometry(2.0, 16, 8, 0, Math.PI),
+        new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, side: THREE.DoubleSide })
+      );
+      dish.rotation.x = Math.PI / 4;
+      dish.position.set(0, 22, 1.2);
+      group.add(dish);
+
+      const flasher = new THREE.PointLight(0xef4444, 2.5, 45);
+      flasher.position.y = 26.5;
+      group.add(flasher);
 
       scene.add(group);
     }
-    createCommTower(-18, -18);
+    createCommTower(70, -22);
+    createCommTower(-20, -20);
+
+    // Low-profile Hangar Facility at Airfield Edge (x: 100, z: 0)
+    function createHangar(x, z, rotY) {
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rotY;
+
+      const hangarGeo = new THREE.CylinderGeometry(7, 7, 24, 16, 1, false, 0, Math.PI);
+      const hangarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.3, side: THREE.DoubleSide });
+      const hangar = new THREE.Mesh(hangarGeo, hangarMat);
+      hangar.rotation.z = Math.PI / 2;
+      hangar.position.y = 0;
+      hangar.castShadow = true;
+      group.add(hangar);
+
+      scene.add(group);
+    }
+    createHangar(110, 0, Math.PI / 2);
+    createHangar(-110, -50, Math.PI / 2);
 
     // -------------------------------------------------------------
-    // Mission Waypoint Corridors (Square Patrol Route at 12m)
+    // Mission Waypoint Corridors (Nominal Square Patrol Route at 12m)
     // -------------------------------------------------------------
     const wpCoords = [
       [0, 12, 0],
@@ -854,12 +1065,12 @@
     const wpPoints = wpCoords.map(p => new THREE.Vector3(p[0], p[1], p[2]));
     const wpGeo = new THREE.BufferGeometry().setFromPoints(wpPoints);
     const wpMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: 1.5, gapSize: 1.0 });
-    const wpLine = new THREE.Line(wpGeo, wpMat);
-    wpLine.computeLineDistances();
-    scene.add(wpLine);
+    const wpPatrolLine = new THREE.Line(wpGeo, wpMat);
+    wpPatrolLine.computeLineDistances();
+    scene.add(wpPatrolLine);
 
+    const patrolHalos = [];
     wpCoords.slice(0, 4).forEach((p, idx) => {
-      // Elevated Waypoint Halo
       const ringMesh = new THREE.Mesh(
         new THREE.TorusGeometry(1.2, 0.08, 16, 32),
         new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 })
@@ -867,8 +1078,8 @@
       ringMesh.position.set(p[0], p[1], p[2]);
       ringMesh.rotation.x = Math.PI / 2;
       scene.add(ringMesh);
+      patrolHalos.push(ringMesh);
 
-      // Vertical Guide Line to Ground
       const guidePoints = [new THREE.Vector3(p[0], 0.1, p[2]), new THREE.Vector3(p[0], p[1], p[2])];
       const guideGeo = new THREE.BufferGeometry().setFromPoints(guidePoints);
       const guideMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: 0.6, gapSize: 0.6, opacity: 0.35, transparent: true });
@@ -876,6 +1087,44 @@
       guideLine.computeLineDistances();
       scene.add(guideLine);
     });
+
+    // -------------------------------------------------------------
+    // Interactive 3D Tactical Destination Goal Beacon
+    // -------------------------------------------------------------
+    const destBeaconGroup = new THREE.Group();
+    destBeaconGroup.position.set(0, 0, 0);
+    destBeaconGroup.visible = false;
+    scene.add(destBeaconGroup);
+
+    // Vertical Laser Pillar (Translucent Cyan/Gold Beam)
+    const laserGeo = new THREE.CylinderGeometry(0.25, 0.25, 36, 16);
+    const laserMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.6 });
+    const laserBeam = new THREE.Mesh(laserGeo, laserMat);
+    laserBeam.position.y = 18;
+    destBeaconGroup.add(laserBeam);
+
+    // Ground Pulsing Ring
+    const destGroundRingGeo = new THREE.RingGeometry(2.2, 2.6, 32);
+    const destGroundRingMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide });
+    const destGroundRing = new THREE.Mesh(destGroundRingGeo, destGroundRingMat);
+    destGroundRing.rotation.x = -Math.PI / 2;
+    destGroundRing.position.y = 0.1;
+    destBeaconGroup.add(destGroundRing);
+
+    // Aerial Target Reticle at 12m Goal Altitude
+    const destReticleGeo = new THREE.TorusGeometry(1.6, 0.09, 16, 32);
+    const destReticleMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const destReticle = new THREE.Mesh(destReticleGeo, destReticleMat);
+    destReticle.position.y = 12.0;
+    destReticle.rotation.x = Math.PI / 2;
+    destBeaconGroup.add(destReticle);
+
+    // Dynamic A* Planned Trajectory Line
+    const dynamicPlanGeo = new THREE.BufferGeometry();
+    const dynamicPlanMat = new THREE.LineDashedMaterial({ color: 0xfacc15, dashSize: 1.2, gapSize: 0.8, linewidth: 2 });
+    const dynamicPlanLine = new THREE.Line(dynamicPlanGeo, dynamicPlanMat);
+    dynamicPlanLine.visible = false;
+    scene.add(dynamicPlanLine);
 
     // -------------------------------------------------------------
     // High-Fidelity Quadcopter 3D Model
@@ -906,9 +1155,9 @@
     droneGroup.add(camMesh);
 
     // Forward Navigation Searchlight
-    const spotLight = new THREE.SpotLight(0xffffff, 2.2, 35, Math.PI / 6, 0.5);
+    const spotLight = new THREE.SpotLight(0xffffff, 2.2, 45, Math.PI / 6, 0.5);
     spotLight.position.set(0, 0, 0.8);
-    spotLight.target.position.set(0, -10, 6);
+    spotLight.target.position.set(0, -10, 8);
     droneGroup.add(spotLight);
     droneGroup.add(spotLight.target);
 
@@ -962,12 +1211,11 @@
       propAssemblies.push(pGroup);
     });
 
-    // Landing Skids (Left & Right Rails on Vertical Struts)
+    // Landing Skids
     const skidMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
     const skidLegGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.42, 8);
     const skidTubeGeo = new THREE.CylinderGeometry(0.045, 0.045, 1.7, 8);
 
-    // Left Skid
     const legL1 = new THREE.Mesh(skidLegGeo, skidMat);
     legL1.position.set(-0.55, -0.28, 0.35);
     legL1.rotation.z = -0.18;
@@ -981,7 +1229,6 @@
     railL.position.set(-0.62, -0.46, 0);
     droneGroup.add(railL);
 
-    // Right Skid
     const legR1 = new THREE.Mesh(skidLegGeo, skidMat);
     legR1.position.set(0.55, -0.28, 0.35);
     legR1.rotation.z = 0.18;
@@ -996,17 +1243,14 @@
     droneGroup.add(railR);
 
     // FAA Navigation LEDs
-    // Starboard Green (Right)
     const navGreen = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
     navGreen.position.set(0.92, 0.12, 0.92);
     droneGroup.add(navGreen);
 
-    // Port Red (Left)
     const navRed = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
     navRed.position.set(-0.92, 0.12, 0.92);
     droneGroup.add(navRed);
 
-    // Tail Strobe White (Rear)
     const tailStrobe = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
     tailStrobe.position.set(0, 0.12, -0.85);
     droneGroup.add(tailStrobe);
@@ -1048,7 +1292,7 @@
     // -------------------------------------------------------------
     // Dual Ribbon Trails (Protected Path vs Spoofed Path)
     // -------------------------------------------------------------
-    const MAX_TRAIL = 120;
+    const MAX_TRAIL = 140;
     const realTrailPoints = [];
     const spoofTrailPoints = [];
 
@@ -1061,6 +1305,101 @@
     const spoofTrailMat = new THREE.LineDashedMaterial({ color: 0xef4444, dashSize: 1.0, gapSize: 0.6, linewidth: 2 });
     const spoofTrailLine = new THREE.Line(spoofTrailGeo, spoofTrailMat);
     scene.add(spoofTrailLine);
+
+    // -------------------------------------------------------------
+    // Raycaster Click-to-Navigate on Ground Tarmac
+    // -------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let pointerDownPos = { x: 0, y: 0 };
+
+    window.addEventListener('pointerdown', (e) => {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      // Avoid triggering when dragging orbit camera
+      const dx = Math.abs(e.clientX - pointerDownPos.x);
+      const dy = Math.abs(e.clientY - pointerDownPos.y);
+      if (dx > 6 || dy > 6) return;
+
+      // Only respond if click was on the canvas directly
+      if (e.target !== renderer.domElement) return;
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(tarmac);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].point;
+        // In our scene: X is East, Z is North
+        const targetX = Math.round(hit.x * 10) / 10;
+        const targetY = Math.round(hit.z * 10) / 10;
+        sendDestination(targetX, targetY, 12.0, "OPERATOR_TARGET");
+        showToast(`🎯 TARGET DISPATCHED: [X: ${targetX}m, Y: ${targetY}m]`);
+      }
+    });
+
+    function showToast(msg) {
+      const toast = document.getElementById('tactical-toast');
+      if (toast) {
+        toast.innerText = msg;
+        toast.classList.add('show');
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+          toast.classList.remove('show');
+        }, 3200);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Mission Planning REST API Dispatchers
+    // -------------------------------------------------------------
+    async function sendDestination(x, y, z = 12.0, label = "CUSTOM_TARGET") {
+      try {
+        document.querySelectorAll('.btn-dest').forEach(b => b.classList.remove('active'));
+        if (label === 'OUTPOST_CHARLIE') document.getElementById('btn-dest-charlie')?.classList.add('active');
+        if (label === 'OBJECTIVE_DELTA') document.getElementById('btn-dest-delta')?.classList.add('active');
+        if (label === 'OBSERVATION_ECHO') document.getElementById('btn-dest-echo')?.classList.add('active');
+
+        const res = await fetch('/navigation/destination', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x: parseFloat(x), y: parseFloat(y), z: parseFloat(z), label: label })
+        });
+        if (res.ok) {
+          showToast(`🎯 DESTINATION SET: ${label} [${x}, ${y}, ${z}m]`);
+        }
+      } catch (e) {
+        console.error("Set destination error:", e);
+      }
+    }
+
+    async function sendRTL() {
+      try {
+        document.querySelectorAll('.btn-dest').forEach(b => b.classList.remove('active'));
+        const res = await fetch('/navigation/rtl', { method: 'POST' });
+        if (res.ok) {
+          showToast(`🏠 RETURN-TO-LAUNCH: Routing Back to Base Alpha [0, 0, 12m]`);
+        }
+      } catch (e) {
+        console.error("RTL error:", e);
+      }
+    }
+
+    async function sendPatrol() {
+      try {
+        document.querySelectorAll('.btn-dest').forEach(b => b.classList.remove('active'));
+        const res = await fetch('/navigation/patrol', { method: 'POST' });
+        if (res.ok) {
+          showToast(`🔄 PATROL RESTORED: Continuous 4-Waypoint Perimeter Survey`);
+        }
+      } catch (e) {
+        console.error("Patrol restore error:", e);
+      }
+    }
 
     // -------------------------------------------------------------
     // WebSocket Telemetry Bridge & Live Updating
@@ -1110,12 +1449,12 @@
 
       if (mode === 'orbit') {
         controls.enabled = true;
-        camera.position.set(38, 28, 38);
-        controls.target.set(12, 10, 12);
+        camera.position.set(48, 36, 48);
+        controls.target.set(16, 8, 16);
       } else if (mode === 'top') {
         controls.enabled = true;
-        camera.position.set(12, 65, 12);
-        controls.target.set(12, 0, 12);
+        camera.position.set(16, 120, 16);
+        controls.target.set(16, 0, 16);
       } else {
         controls.enabled = false;
       }
@@ -1181,11 +1520,51 @@
         spoofTrailPoints.length = 0;
       }
 
+      // Update Destination Beacon & Planned Trajectory
+      const missionType = data.mission_type || "patrol";
+      const targetGoal = data.target_goal;
+      const targetLabel = data.target_label || (missionType === "patrol" ? "PERIMETER PATROL" : "TARGET POINT");
+      const distToGoal = data.distance_to_goal !== undefined ? data.distance_to_goal.toFixed(1) : "0.0";
+
+      document.getElementById('target-mode-name').innerText = targetLabel;
+      document.getElementById('target-dist-val').innerText = `${distToGoal} m`;
+
+      if (targetGoal && missionType === "target_point") {
+        destBeaconGroup.position.set(targetGoal[0], 0, targetGoal[1]);
+        destBeaconGroup.visible = true;
+        document.getElementById('target-coords-txt').innerText = `[${targetGoal[0].toFixed(1)}, ${targetGoal[1].toFixed(1)}, ${targetGoal[2]?.toFixed(1) || 12.0}m]`;
+        wpPatrolLine.visible = false;
+        patrolHalos.forEach(h => h.visible = false);
+      } else {
+        destBeaconGroup.visible = false;
+        document.getElementById('target-coords-txt').innerText = `[Patrol Ring at 12m]`;
+        wpPatrolLine.visible = true;
+        patrolHalos.forEach(h => h.visible = true);
+      }
+
+      // Dynamic Planned Trajectory Line from A*
+      if (data.planned_waypoints && data.planned_waypoints.length > 0) {
+        const linePts = [droneGroup.position.clone()];
+        data.planned_waypoints.forEach(wp => {
+          linePts.push(new THREE.Vector3(wp[0], wp[2], wp[1]));
+        });
+        dynamicPlanGeo.setFromPoints(linePts);
+        dynamicPlanLine.computeLineDistances();
+        dynamicPlanLine.visible = (missionType === "target_point");
+      } else {
+        dynamicPlanLine.visible = false;
+      }
+
       // Update HUD Values
       document.getElementById('val-alt').innerText = alt;
       document.getElementById('val-speed').innerText = speed;
       document.getElementById('val-yaw').innerText = String(yaw).padStart(3, '0');
-      document.getElementById('val-wp').innerText = data.current_waypoint ? data.current_waypoint.split('/')[0] : 'WP-2';
+      
+      const wpText = (missionType === "target_point") ? 
+        (parseFloat(distToGoal) < 1.5 ? "HOVER AT GOAL" : `ENROUTE (${distToGoal}m)`) : 
+        (data.current_waypoint ? data.current_waypoint.split('/')[0] : 'WP-2/4');
+      document.getElementById('val-wp').innerText = wpText;
+
       document.getElementById('val-pos-ekf').innerText = `[${pos[0].toFixed(1)}, ${pos[1].toFixed(1)}, ${pos[2].toFixed(1)}]`;
       document.getElementById('val-pos-gps').innerText = `[${rawGps[0].toFixed(1)}, ${rawGps[1].toFixed(1)}, ${rawGps[2].toFixed(1)}]`;
 
@@ -1352,6 +1731,14 @@
 
       // Tail strobe blinking
       tailStrobe.visible = Math.floor(elapsed * 4) % 2 === 0;
+
+      // Pulsing Destination Beacon Effects
+      if (destBeaconGroup.visible) {
+        destReticle.rotation.z += 1.2 * delta;
+        const pulse = 1.0 + 0.15 * Math.sin(elapsed * 4);
+        destGroundRing.scale.set(pulse, pulse, pulse);
+        laserMat.opacity = 0.5 + 0.25 * Math.sin(elapsed * 6);
+      }
 
       // Update Orbit controls if active
       if (controls.enabled) controls.update();
