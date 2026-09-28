@@ -525,6 +525,137 @@
     .modal-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #cbd5e1; }
     .modal-scenario-list { display: flex; flex-direction: column; gap: 4px; }
     .scenario-pill { background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.06); padding: 5px 8px; border-radius: 4px; font-size: 0.72rem; color: #cbd5e1; font-family: 'JetBrains Mono', monospace; }
+
+    /* Slide-over System Settings Modal */
+    .settings-modal {
+      display: none;
+      position: absolute;
+      top: 65px;
+      right: 20px;
+      width: 550px;
+      max-height: calc(100vh - 140px);
+      background: rgba(10, 15, 30, 0.96);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 14px;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), 0 0 25px rgba(245, 158, 11, 0.2);
+      backdrop-filter: blur(18px);
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 18px 22px;
+      animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .settings-nav {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 8px;
+    }
+    .settings-tab-btn {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: 'Outfit', sans-serif;
+    }
+    .settings-tab-btn.active {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: #f59e0b;
+      color: #f59e0b;
+    }
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .setting-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .setting-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .setting-title {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+    .setting-value-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .setting-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.12);
+      outline: none;
+      -webkit-appearance: none;
+      margin: 6px 0 2px 0;
+      cursor: pointer;
+    }
+    .setting-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #f59e0b;
+      box-shadow: 0 0 8px #f59e0b;
+      cursor: pointer;
+    }
+    .setting-desc {
+      font-size: 0.67rem;
+      color: #94a3b8;
+      line-height: 1.35;
+    }
+    .setting-toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255,255,255,0.15);
+      transition: .3s;
+      border-radius: 22px;
+    }
+    .toggle-slider:before {
+      position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .toggle-slider { background-color: #10b981; }
+    input:checked + .toggle-slider:before { transform: translateX(18px); }
   </style>
 </head>
 <body>
@@ -567,6 +698,7 @@
       </div>
 
       <div style="display: flex; align-items: center; gap: 8px;">
+        <button class="btn btn-view hud-interactive" onclick="toggleSettingsModal()" style="border-color: rgba(245,158,11,0.5); color: #f59e0b; font-weight: 700; padding: 7px 14px; border-radius: 20px; font-size: 0.76rem; background: rgba(245,158,11,0.12);">⚙️ SETTINGS</button>
         <button class="btn btn-view hud-interactive" onclick="toggleBenchmarksModal()" style="border-color: rgba(56,189,248,0.5); color: #38bdf8; font-weight: 700; padding: 7px 14px; border-radius: 20px; font-size: 0.76rem; background: rgba(56,189,248,0.12);">📊 SPECS & PROOF</button>
         <div class="glass-panel mode-indicator hud-interactive" id="flight-mode-badge">
           <div class="status-dot"></div>
@@ -665,6 +797,177 @@
       </div>
     </div>
 
+    <!-- Modal Slide-over: System Settings & Realistic Flight Tuning -->
+    <div id="settings-modal" class="settings-modal hud-interactive">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.2rem;">⚙️</span>
+          <span style="font-weight: 700; color: var(--accent-amber); font-size: 0.95rem;">AUTONOMOUS SYSTEM SETTINGS</span>
+        </div>
+        <button class="modal-close-btn" onclick="toggleSettingsModal()">✕</button>
+      </div>
+
+      <!-- Settings Navigation Tabs -->
+      <div class="settings-nav">
+        <button class="settings-tab-btn active" id="tab-btn-flight" onclick="switchSettingsTab('flight')">✈️ Flight</button>
+        <button class="settings-tab-btn" id="tab-btn-safety" onclick="switchSettingsTab('safety')">🧱 Obstacles</button>
+        <button class="settings-tab-btn" id="tab-btn-cyber" onclick="switchSettingsTab('cyber')">🛡️ Resilience</button>
+        <button class="settings-tab-btn" id="tab-btn-audio" onclick="switchSettingsTab('audio')">🔊 Audio & UI</button>
+      </div>
+
+      <div class="modal-content">
+        <!-- Tab 1: Flight Dynamics -->
+        <div id="tab-content-flight" class="setting-group">
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Cruise Altitude</span>
+              <span class="setting-value-badge" id="lbl-cfg-cruise-alt">12.0 m</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-cruise-alt" min="6.0" max="30.0" step="0.5" value="12.0" oninput="updateSettingLive('cruise_altitude', this.value, 'm')">
+            <span class="setting-desc">Nominal en-route flight ceiling across tactical proving grounds.</span>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Cruise Speed</span>
+              <span class="setting-value-badge" id="lbl-cfg-cruise-spd">2.8 m/s</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-cruise-spd" min="1.0" max="7.0" step="0.2" value="2.8" oninput="updateSettingLive('cruise_speed', this.value, 'm/s')">
+            <span class="setting-desc">Nominal transit velocity. Automatically throttled down during cyber containment.</span>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Vertical Climb Speed</span>
+              <span class="setting-value-badge" id="lbl-cfg-climb-spd">1.8 m/s</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-climb-spd" min="0.5" max="4.0" step="0.1" value="1.8" oninput="updateSettingLive('climb_speed', this.value, 'm/s')">
+            <span class="setting-desc">Rate of vertical climb during takeoff and stepped obstacle clearing.</span>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Precision Descent Speed</span>
+              <span class="setting-value-badge" id="lbl-cfg-descent-spd">1.0 m/s</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-descent-spd" min="0.4" max="3.0" step="0.1" value="1.0" oninput="updateSettingLive('descent_speed', this.value, 'm/s')">
+            <span class="setting-desc">Vertical approach velocity during rooftop and ground touchdowns.</span>
+          </div>
+
+          <div class="setting-toggle-row">
+            <div>
+              <div class="setting-title">Ground-Effect Aerodynamic Cushion</div>
+              <div class="setting-desc">Decelerates drone descent to &lt; 0.3 m/s in final 1.2m of touchdown.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="cfg-ground-effect" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Tab 2: Obstacles & Safety -->
+        <div id="tab-content-safety" class="setting-group" style="display: none;">
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Overflight Clearance</span>
+              <span class="setting-value-badge" id="lbl-cfg-overflight">1.5 m</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-overflight" min="0.8" max="5.0" step="0.1" value="1.5" oninput="updateSettingLive('overflight_clearance', this.value, 'm')">
+            <span class="setting-desc">Minimum altitude margin above rooftop/mast to permit unrestricted free overflight.</span>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Horizontal Collision Safety Margin</span>
+              <span class="setting-value-badge" id="lbl-cfg-collision-margin">1.8 m</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-collision-margin" min="0.5" max="4.0" step="0.1" value="1.8" oninput="updateSettingLive('collision_margin', this.value, 'm')">
+            <span class="setting-desc">Physical repulsion buffer before solid obstacle barrier. Drone position clamps at barrier.</span>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">RTL Safe Transit Altitude</span>
+              <span class="setting-value-badge" id="lbl-cfg-rtl-alt">15.0 m</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-rtl-alt" min="8.0" max="35.0" step="1.0" value="15.0" oninput="updateSettingLive('rtl_altitude', this.value, 'm')">
+            <span class="setting-desc">Aviation protocol: climbs above all obstacles before transiting home to Base Alpha.</span>
+          </div>
+        </div>
+
+        <!-- Tab 3: Resilience & Cyber Defense -->
+        <div id="tab-content-cyber" class="setting-group" style="display: none;">
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Chi-Square χ² NIS Gate Threshold</span>
+              <span class="setting-value-badge" id="lbl-cfg-nis-gate">11.34</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-nis-gate" min="5.0" max="25.0" step="0.5" value="11.34" oninput="updateSettingLive('nis_gate_threshold', this.value, '')">
+            <span class="setting-desc">99% confidence ellipsoidal innovation gating. Residuals exceeding gate trigger isolation.</span>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Sensor Quarantine Threshold</span>
+              <span class="setting-value-badge" id="lbl-cfg-quarantine">50%</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-quarantine" min="0.10" max="0.80" step="0.05" value="0.50" oninput="updateSettingLive('quarantine_threshold', this.value, '%')">
+            <span class="setting-desc">Trust score floor below which compromised sensor is excluded from EKF fusion.</span>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-header">
+              <span class="setting-title">Sensor Recovery Threshold</span>
+              <span class="setting-value-badge" id="lbl-cfg-recovery">85%</span>
+            </div>
+            <input type="range" class="setting-slider" id="cfg-recovery" min="0.50" max="0.98" step="0.02" value="0.85" oninput="updateSettingLive('recovery_threshold', this.value, '%')">
+            <span class="setting-desc">Hysteresis trust ceiling required to reinstate quarantined sensor into active fusion.</span>
+          </div>
+
+          <div class="setting-toggle-row">
+            <div>
+              <div class="setting-title">Autonomous Sensor Recovery Hysteresis</div>
+              <div class="setting-desc">Recovers isolated sensors after consecutive healthy innovation residuals.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="cfg-auto-recovery" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Tab 4: Audio & Cockpit Feedback -->
+        <div id="tab-content-audio" class="setting-group" style="display: none;">
+          <div class="setting-toggle-row">
+            <div>
+              <div class="setting-title">Cockpit Audio & Synthesized Alerts</div>
+              <div class="setting-desc">Web Audio API tactical sound synthesis for cyber attacks, touchdowns, and clicks.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="cfg-audio-enabled" checked onchange="audioEnabled = this.checked">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 6px;">
+            <button class="btn btn-attack" style="flex: 1; padding: 7px; font-size: 0.72rem;" onclick="playTacticalTone('attack')">🚨 Test Siren</button>
+            <button class="btn btn-safe" style="flex: 1; padding: 7px; font-size: 0.72rem;" onclick="playTacticalTone('touchdown')">🔔 Test Touchdown</button>
+            <button class="btn btn-view" style="flex: 1; padding: 7px; font-size: 0.72rem;" onclick="playTacticalTone('click')">🔊 Test Click</button>
+          </div>
+        </div>
+
+        <!-- Action Footer -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+          <button class="btn btn-view" style="font-size: 0.72rem; padding: 6px 12px;" onclick="resetSettingsDefaults()">🔄 Reset Defaults</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-view" style="font-size: 0.72rem; padding: 6px 12px;" onclick="toggleSettingsModal()">Cancel</button>
+            <button class="btn btn-safe" style="font-size: 0.75rem; font-weight: 700; padding: 7px 16px; background: rgba(245, 158, 11, 0.25); border-color: #f59e0b; color: #f59e0b;" onclick="saveSettingsToServer()">💾 Apply Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Active Cyber-Attack Warning Banner -->
     <div class="attack-alert-banner hud-interactive" id="attack-alert">
       <span>⚠️</span>
@@ -691,21 +994,27 @@
 
           <div class="kpi-grid" style="margin-top: 10px;">
             <div class="kpi-card">
-              <div class="kpi-label">Altitude (AGL)</div>
+              <div class="kpi-label">MSL Altitude</div>
               <div class="kpi-value"><span id="val-alt">12.0</span><span class="kpi-unit">m</span></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">AGL (LiDAR)</div>
+              <div class="kpi-value" style="color: #38bdf8;"><span id="val-alt-agl">12.0</span><span class="kpi-unit">m</span></div>
             </div>
             <div class="kpi-card">
               <div class="kpi-label">Ground Speed</div>
               <div class="kpi-value"><span id="val-speed">2.8</span><span class="kpi-unit">m/s</span></div>
             </div>
             <div class="kpi-card">
-              <div class="kpi-label">True Heading</div>
-              <div class="kpi-value"><span id="val-yaw">090</span><span class="kpi-unit">°</span></div>
-            </div>
-            <div class="kpi-card">
               <div class="kpi-label">Waypoint / Phase</div>
               <div class="kpi-value"><span id="val-wp" style="font-size: 0.88rem;">WP-2/4</span></div>
             </div>
+          </div>
+
+          <!-- Real-Time Surface Profile & Landing Surface Detector -->
+          <div style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;">
+            <span style="color: #94a3b8; display: flex; align-items: center; gap: 4px;"><span>📡</span> SURFACE:</span>
+            <span id="val-surface-badge" style="color: #10b981; font-weight: 700;">GROUND_TARMAC (0.0m)</span>
           </div>
 
           <div style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
@@ -811,7 +1120,9 @@
           <button class="btn btn-dest" id="btn-dest-charlie" onclick="sendDestination(45, 30, 12, 'OUTPOST_CHARLIE')">🏢 Charlie (45, 30)</button>
           <button class="btn btn-dest" id="btn-dest-delta" onclick="sendDestination(-40, 50, 12, 'OBJECTIVE_DELTA')">📡 Delta (-40, 50)</button>
           <button class="btn btn-dest" id="btn-dest-echo" onclick="sendDestination(70, -35, 12, 'OBSERVATION_ECHO')">🔭 Echo (70, -35)</button>
-          <div class="click-hint-badge">💡 Click Ground to Route</div>
+          <button class="btn btn-dest" id="btn-land-hangar" onclick="sendLandOnSurface(110, 0, 'HANGAR_ALPHA_ROOF')" style="background: rgba(16,185,129,0.18); border-color: #10b981; color: #10b981; font-weight: 700;">🏭 Land Hangar Roof (7m)</button>
+          <button class="btn btn-dest" id="btn-land-radar" onclick="sendLandOnSurface(-40, 62, 'RADAR_BUNKER_DECK')" style="background: rgba(139,92,246,0.18); border-color: #8b5cf6; color: #c084fc; font-weight: 700;">📡 Land Radar Deck (3.2m)</button>
+          <div class="click-hint-badge">💡 Click Ground / Roof to Route</div>
         </div>
       </div>
 
@@ -1009,7 +1320,7 @@
       const group = new THREE.Group();
       group.position.set(x, 0, z);
 
-      // Octagonal Bunker Base
+      // Octagonal Bunker Base (Height 3.2m, Elevation 0 to 3.2m)
       const bunker = new THREE.Mesh(
         new THREE.CylinderGeometry(4.2, 5.0, 3.2, 8),
         new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.4 })
@@ -1018,19 +1329,45 @@
       bunker.castShadow = true;
       group.add(bunker);
 
+      // Elevated Observation & Servicing Helipad Deck at y = 3.2m
+      const deckGeo = new THREE.CylinderGeometry(4.3, 4.3, 0.15, 8);
+      const deckMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8, metalness: 0.5 });
+      const deck = new THREE.Mesh(deckGeo, deckMat);
+      deck.position.y = 3.20;
+      deck.receiveShadow = true;
+      group.add(deck);
+
+      // Helipad Landing Ring at y = 3.28m
+      const deckRing = new THREE.Mesh(
+        new THREE.RingGeometry(2.6, 2.9, 24),
+        new THREE.MeshBasicMaterial({ color: 0x8b5cf6, side: THREE.DoubleSide })
+      );
+      deckRing.rotation.x = -Math.PI / 2;
+      deckRing.position.y = 3.28;
+      group.add(deckRing);
+
       // Geodesic Radar Dome
       const dome = new THREE.Mesh(
-        new THREE.SphereGeometry(3.2, 16, 16),
+        new THREE.SphereGeometry(2.2, 16, 16),
         new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.2 })
       );
-      dome.position.y = 4.8;
+      dome.position.set(0, 4.4, 0);
       dome.castShadow = true;
       group.add(dome);
 
       // Flashing Obstruction Light
       const redLight = new THREE.PointLight(0xef4444, 1.8, 30);
-      redLight.position.y = 8.5;
+      redLight.position.y = 7.0;
       group.add(redLight);
+
+      // 4 Green/Amber Runway LEDs on Bunker Deck Perimeter
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) {
+        const lx = Math.cos(angle) * 3.8;
+        const lz = Math.sin(angle) * 3.8;
+        const led = new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), new THREE.MeshBasicMaterial({ color: 0x8b5cf6 }));
+        led.position.set(lx, 3.30, lz);
+        group.add(led);
+      }
 
       scene.add(group);
     }
@@ -1072,18 +1409,18 @@
 
       scene.add(group);
     }
-    // Positioned safely on outer perimeter boundaries away from flight corridor
     createCommTower(120, -120);
     createCommTower(-130, 120);
 
 
-    // Low-profile Hangar Facility at Airfield Edge (x: 100, z: 0)
-    function createHangar(x, z, rotY) {
+    // Low-profile Hangar Facility with Elevated Rooftop Helipad (Elevation: 7.0m)
+    function createHangar(x, z, rotY, hasRooftopPad = true) {
       const group = new THREE.Group();
       group.position.set(x, 0, z);
       group.rotation.y = rotY;
 
-      const hangarGeo = new THREE.CylinderGeometry(7, 7, 24, 16, 1, false, 0, Math.PI);
+      // Arched Hangar Cylinder
+      const hangarGeo = new THREE.CylinderGeometry(7, 7, 24, 20, 1, false, 0, Math.PI);
       const hangarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.3, side: THREE.DoubleSide });
       const hangar = new THREE.Mesh(hangarGeo, hangarMat);
       hangar.rotation.z = Math.PI / 2;
@@ -1091,10 +1428,68 @@
       hangar.castShadow = true;
       group.add(hangar);
 
+      if (hasRooftopPad) {
+        // Reinforced Helipad Platform on Rooftop at y = 7.0m
+        const padBaseGeo = new THREE.BoxGeometry(9.0, 0.25, 9.0);
+        const padBaseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8, metalness: 0.6 });
+        const padBase = new THREE.Mesh(padBaseGeo, padBaseMat);
+        padBase.position.set(0, 7.0, 0);
+        padBase.receiveShadow = true;
+        group.add(padBase);
+
+        // Helipad Disc at y = 7.15m
+        const padDiscGeo = new THREE.CircleGeometry(3.8, 32);
+        const padDiscMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.3 });
+        const padDisc = new THREE.Mesh(padDiscGeo, padDiscMat);
+        padDisc.rotation.x = -Math.PI / 2;
+        padDisc.position.set(0, 7.14, 0);
+        group.add(padDisc);
+
+        // Emerald Perimeter Ring
+        const ringGeo = new THREE.RingGeometry(3.3, 3.6, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(0, 7.16, 0);
+        group.add(ring);
+
+        // Yellow Helipad "H" Marking
+        const hMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide });
+        const hBarGeo = new THREE.PlaneGeometry(0.35, 2.2);
+        const hCrossGeo = new THREE.PlaneGeometry(1.2, 0.35);
+
+        const hLeft = new THREE.Mesh(hBarGeo, hMat);
+        hLeft.rotation.x = -Math.PI / 2;
+        hLeft.position.set(-0.6, 7.18, 0);
+        group.add(hLeft);
+
+        const hRight = new THREE.Mesh(hBarGeo, hMat);
+        hRight.rotation.x = -Math.PI / 2;
+        hRight.position.set(0.6, 7.18, 0);
+        group.add(hRight);
+
+        const hCross = new THREE.Mesh(hCrossGeo, hMat);
+        hCross.rotation.x = -Math.PI / 2;
+        hCross.position.set(0, 7.18, 0);
+        group.add(hCross);
+
+        // 4 Corner Perimeter Green LED Runway Lights
+        const ledCoords = [[-4.2, -4.2], [4.2, -4.2], [4.2, 4.2], [-4.2, 4.2]];
+        ledCoords.forEach(([lx, lz]) => {
+          const led = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+          led.position.set(lx, 7.22, lz);
+          group.add(led);
+
+          const ledLight = new THREE.PointLight(0x10b981, 0.6, 8.0);
+          ledLight.position.set(lx, 7.35, lz);
+          group.add(ledLight);
+        });
+      }
+
       scene.add(group);
     }
-    createHangar(110, 0, Math.PI / 2);
-    createHangar(-110, -50, Math.PI / 2);
+    createHangar(110, 0, Math.PI / 2, true);
+    createHangar(-110, -50, Math.PI / 2, true);
 
     // -------------------------------------------------------------
     // Mission Waypoint Corridors (Nominal Square Patrol Route at 12m)
@@ -1455,6 +1850,26 @@
       }
     }
 
+    async function sendLandOnSurface(x, y, label = "ROOFTOP_LANDING") {
+      try {
+        document.querySelectorAll('.btn-dest').forEach(b => b.classList.remove('active'));
+        if (label.includes('HANGAR')) document.getElementById('btn-land-hangar')?.classList.add('active');
+        if (label.includes('RADAR')) document.getElementById('btn-land-radar')?.classList.add('active');
+
+        const res = await fetch('/navigation/land_on_surface', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x: parseFloat(x), y: parseFloat(y), label: label })
+        });
+        if (res.ok) {
+          showToast(`🎯 ROOFTOP APPROACH: Routing to ${label} (${x}m, ${y}m)`);
+          playTacticalTone('click');
+        }
+      } catch (e) {
+        console.error("Land on surface error:", e);
+      }
+    }
+
     async function sendRTL() {
       try {
         document.querySelectorAll('.btn-dest').forEach(b => b.classList.remove('active'));
@@ -1681,7 +2096,27 @@
       }
 
       // Update HUD Values
-      document.getElementById('val-alt').innerText = alt;
+      const mslAlt = parseFloat(data.altitude_m || pos[2]).toFixed(1);
+      const aglAlt = parseFloat(data.altitude_agl_m !== undefined ? data.altitude_agl_m : (data.altitude_m || pos[2])).toFixed(1);
+      const surfName = data.surface_name || 'GROUND_TARMAC';
+      const surfElev = parseFloat(data.surface_elevation_m || 0.0).toFixed(1);
+
+      document.getElementById('val-alt').innerText = mslAlt;
+      const aglElem = document.getElementById('val-alt-agl');
+      if (aglElem) aglElem.innerText = aglAlt;
+
+      const surfElem = document.getElementById('val-surface-badge');
+      if (surfElem) {
+        surfElem.innerText = `${surfName} (${surfElev}m)`;
+        if (surfName.includes('ROOF') || surfName.includes('DECK')) {
+          surfElem.style.color = '#38bdf8';
+        } else if (surfName.includes('HELIPAD') || surfName.includes('ALPHA')) {
+          surfElem.style.color = '#10b981';
+        } else {
+          surfElem.style.color = '#94a3b8';
+        }
+      }
+
       document.getElementById('val-speed').innerText = speed;
       document.getElementById('val-yaw').innerText = String(yaw).padStart(3, '0');
       
@@ -1736,6 +2171,7 @@
       const isDegraded = (navMode !== "NORMAL_MISSION");
 
       if (isUnderActiveAttack) {
+        if (!wasUnderAttack) playTacticalTone('attack');
         badge.className = 'mode-indicator attack';
         badge.style.background = '';
         badge.style.borderColor = '';
@@ -1759,16 +2195,21 @@
         badge.style.color = '';
         alertBanner.style.display = 'none';
       }
-
+      wasUnderAttack = isUnderActiveAttack;
 
       // Flight Phase & State Display
       const flightPhase = data.flight_phase || (parseFloat(alt) < 0.5 ? 'LANDED' : 'CRUISE');
+      if (flightPhase === 'LANDED' && lastKnownFlightPhase !== 'LANDED') {
+        playTacticalTone('touchdown');
+      }
+      lastKnownFlightPhase = flightPhase;
+
       const phaseElem = document.getElementById('flight-phase-txt');
       if (phaseElem) {
         phaseElem.innerText = flightPhase;
         if (flightPhase === 'LANDED') phaseElem.style.color = '#94a3b8';
         else if (flightPhase === 'TAKEOFF') phaseElem.style.color = '#38bdf8';
-        else if (flightPhase === 'LANDING' || flightPhase === 'RTL_LAND') phaseElem.style.color = '#f59e0b';
+        else if (flightPhase === 'LANDING' || flightPhase === 'RTL_LAND' || flightPhase === 'ROOFTOP_APPROACH') phaseElem.style.color = '#f59e0b';
         else phaseElem.style.color = '#10b981';
       }
       lastTelemetry = data;
@@ -1860,7 +2301,260 @@
       const modal = document.getElementById('benchmark-modal');
       if (modal) {
         modal.style.display = (modal.style.display === 'block') ? 'none' : 'block';
+        if (modal.style.display === 'block') {
+          document.getElementById('settings-modal').style.display = 'none';
+        }
       }
+    }
+
+    // -------------------------------------------------------------
+    // Web Audio API Synthesizer (Realistic Tactical Sound Effects)
+    // -------------------------------------------------------------
+    let wasUnderAttack = false;
+    let lastKnownFlightPhase = 'CRUISE';
+    let audioCtx = null;
+    let audioEnabled = true;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) audioCtx = new AudioContextClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function playTacticalTone(type) {
+      if (!audioEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        if (type === 'click') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1200, now);
+          gain.gain.setValueAtTime(0.06, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.05);
+        } else if (type === 'attack') {
+          // Urgent dual-tone siren (880Hz / 587Hz)
+          const osc1 = ctx.createOscillator();
+          const gain1 = ctx.createGain();
+          osc1.type = 'sawtooth';
+          osc1.frequency.setValueAtTime(880, now);
+          osc1.frequency.setValueAtTime(587, now + 0.12);
+          osc1.frequency.setValueAtTime(880, now + 0.24);
+          gain1.gain.setValueAtTime(0.12, now);
+          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+          osc1.connect(gain1);
+          gain1.connect(ctx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.36);
+        } else if (type === 'touchdown') {
+          // Smooth two-tone touchdown chime (C5 -> E5)
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.15);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.65);
+        }
+      } catch (e) {
+        // Audio policy or silent
+      }
+    }
+
+    // -------------------------------------------------------------
+    // System Settings Modal Controller & Live REST API Sync
+    // -------------------------------------------------------------
+    let currentSettings = {
+      cruise_altitude: 12.0,
+      cruise_speed: 2.8,
+      climb_speed: 1.8,
+      descent_speed: 1.0,
+      rtl_altitude: 15.0,
+      overflight_clearance: 1.5,
+      collision_margin: 1.8,
+      ground_effect_enabled: true,
+      nis_gate_threshold: 11.34,
+      quarantine_threshold: 0.50,
+      recovery_threshold: 0.85,
+      auto_recovery_enabled: true,
+      audio_alerts_enabled: true
+    };
+
+    function toggleSettingsModal() {
+      const modal = document.getElementById('settings-modal');
+      if (modal) {
+        const isOpening = (modal.style.display !== 'block');
+        modal.style.display = isOpening ? 'block' : 'none';
+        if (isOpening) {
+          document.getElementById('benchmark-modal').style.display = 'none';
+          fetchSettingsFromServer();
+        }
+        playTacticalTone('click');
+      }
+    }
+
+    function switchSettingsTab(tabName) {
+      ['flight', 'safety', 'cyber', 'audio'].forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-content-${t}`);
+        if (btn && content) {
+          if (t === tabName) {
+            btn.classList.add('active');
+            content.style.display = 'flex';
+          } else {
+            btn.classList.remove('active');
+            content.style.display = 'none';
+          }
+        }
+      });
+      playTacticalTone('click');
+    }
+
+    function updateSettingLive(key, val, unit) {
+      const numVal = parseFloat(val);
+      currentSettings[key] = numVal;
+
+      if (key === 'cruise_altitude') document.getElementById('lbl-cfg-cruise-alt').innerText = `${numVal.toFixed(1)} ${unit}`;
+      else if (key === 'cruise_speed') document.getElementById('lbl-cfg-cruise-spd').innerText = `${numVal.toFixed(1)} ${unit}`;
+      else if (key === 'climb_speed') document.getElementById('lbl-cfg-climb-spd').innerText = `${numVal.toFixed(1)} ${unit}`;
+      else if (key === 'descent_speed') document.getElementById('lbl-cfg-descent-spd').innerText = `${numVal.toFixed(1)} ${unit}`;
+      else if (key === 'overflight_clearance') document.getElementById('lbl-cfg-overflight').innerText = `${numVal.toFixed(1)} ${unit}`;
+      else if (key === 'collision_margin') document.getElementById('lbl-cfg-collision-margin').innerText = `${numVal.toFixed(1)} ${unit}`;
+      else if (key === 'rtl_altitude') document.getElementById('lbl-cfg-rtl-alt').innerText = `${numVal.toFixed(0)} ${unit}`;
+      else if (key === 'nis_gate_threshold') document.getElementById('lbl-cfg-nis-gate').innerText = numVal.toFixed(2);
+      else if (key === 'quarantine_threshold') document.getElementById('lbl-cfg-quarantine').innerText = `${Math.round(numVal * 100)}%`;
+      else if (key === 'recovery_threshold') document.getElementById('lbl-cfg-recovery').innerText = `${Math.round(numVal * 100)}%`;
+    }
+
+    async function fetchSettingsFromServer() {
+      try {
+        const res = await fetch('/settings');
+        if (res.ok) {
+          const cfg = await res.json();
+          currentSettings = { ...currentSettings, ...cfg };
+
+          document.getElementById('cfg-cruise-alt').value = cfg.cruise_altitude;
+          document.getElementById('lbl-cfg-cruise-alt').innerText = `${cfg.cruise_altitude.toFixed(1)} m`;
+
+          document.getElementById('cfg-cruise-spd').value = cfg.cruise_speed;
+          document.getElementById('lbl-cfg-cruise-spd').innerText = `${cfg.cruise_speed.toFixed(1)} m/s`;
+
+          document.getElementById('cfg-climb-spd').value = cfg.climb_speed;
+          document.getElementById('lbl-cfg-climb-spd').innerText = `${cfg.climb_speed.toFixed(1)} m/s`;
+
+          document.getElementById('cfg-descent-spd').value = cfg.descent_speed;
+          document.getElementById('lbl-cfg-descent-spd').innerText = `${cfg.descent_speed.toFixed(1)} m/s`;
+
+          document.getElementById('cfg-overflight').value = cfg.overflight_clearance;
+          document.getElementById('lbl-cfg-overflight').innerText = `${cfg.overflight_clearance.toFixed(1)} m`;
+
+          document.getElementById('cfg-collision-margin').value = cfg.collision_margin;
+          document.getElementById('lbl-cfg-collision-margin').innerText = `${cfg.collision_margin.toFixed(1)} m`;
+
+          document.getElementById('cfg-rtl-alt').value = cfg.rtl_altitude;
+          document.getElementById('lbl-cfg-rtl-alt').innerText = `${cfg.rtl_altitude.toFixed(0)} m`;
+
+          document.getElementById('cfg-nis-gate').value = cfg.nis_gate_threshold;
+          document.getElementById('lbl-cfg-nis-gate').innerText = cfg.nis_gate_threshold.toFixed(2);
+
+          document.getElementById('cfg-quarantine').value = cfg.quarantine_threshold;
+          document.getElementById('lbl-cfg-quarantine').innerText = `${Math.round(cfg.quarantine_threshold * 100)}%`;
+
+          document.getElementById('cfg-recovery').value = cfg.recovery_threshold;
+          document.getElementById('lbl-cfg-recovery').innerText = `${Math.round(cfg.recovery_threshold * 100)}%`;
+
+          document.getElementById('cfg-ground-effect').checked = cfg.ground_effect_enabled ?? true;
+          document.getElementById('cfg-auto-recovery').checked = cfg.auto_recovery_enabled ?? true;
+          document.getElementById('cfg-audio-enabled').checked = cfg.audio_alerts_enabled ?? true;
+          audioEnabled = cfg.audio_alerts_enabled ?? true;
+        }
+      } catch (e) {
+        console.error("Fetch settings error:", e);
+      }
+    }
+
+    async function saveSettingsToServer() {
+      try {
+        currentSettings.ground_effect_enabled = document.getElementById('cfg-ground-effect').checked;
+        currentSettings.auto_recovery_enabled = document.getElementById('cfg-auto-recovery').checked;
+        currentSettings.audio_alerts_enabled = document.getElementById('cfg-audio-enabled').checked;
+        audioEnabled = currentSettings.audio_alerts_enabled;
+
+        const res = await fetch('/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentSettings)
+        });
+
+        if (res.ok) {
+          showToast(`⚙️ SETTINGS APPLIED: Flight & Resilience Dynamics Live`);
+          playTacticalTone('click');
+          document.getElementById('settings-modal').style.display = 'none';
+        }
+      } catch (e) {
+        console.error("Save settings error:", e);
+      }
+    }
+
+    function resetSettingsDefaults() {
+      const defaults = {
+        cruise_altitude: 12.0,
+        cruise_speed: 2.8,
+        climb_speed: 1.8,
+        descent_speed: 1.0,
+        rtl_altitude: 15.0,
+        overflight_clearance: 1.5,
+        collision_margin: 1.8,
+        ground_effect_enabled: true,
+        nis_gate_threshold: 11.34,
+        quarantine_threshold: 0.50,
+        recovery_threshold: 0.85,
+        auto_recovery_enabled: true,
+        audio_alerts_enabled: true
+      };
+      currentSettings = { ...defaults };
+      document.getElementById('cfg-cruise-alt').value = 12.0;
+      document.getElementById('lbl-cfg-cruise-alt').innerText = "12.0 m";
+      document.getElementById('cfg-cruise-spd').value = 2.8;
+      document.getElementById('lbl-cfg-cruise-spd').innerText = "2.8 m/s";
+      document.getElementById('cfg-climb-spd').value = 1.8;
+      document.getElementById('lbl-cfg-climb-spd').innerText = "1.8 m/s";
+      document.getElementById('cfg-descent-spd').value = 1.0;
+      document.getElementById('lbl-cfg-descent-spd').innerText = "1.0 m/s";
+      document.getElementById('cfg-overflight').value = 1.5;
+      document.getElementById('lbl-cfg-overflight').innerText = "1.5 m";
+      document.getElementById('cfg-collision-margin').value = 1.8;
+      document.getElementById('lbl-cfg-collision-margin').innerText = "1.8 m";
+      document.getElementById('cfg-rtl-alt').value = 15.0;
+      document.getElementById('lbl-cfg-rtl-alt').innerText = "15 m";
+      document.getElementById('cfg-nis-gate').value = 11.34;
+      document.getElementById('lbl-cfg-nis-gate').innerText = "11.34";
+      document.getElementById('cfg-quarantine').value = 0.50;
+      document.getElementById('lbl-cfg-quarantine').innerText = "50%";
+      document.getElementById('cfg-recovery').value = 0.85;
+      document.getElementById('lbl-cfg-recovery').innerText = "85%";
+      document.getElementById('cfg-ground-effect').checked = true;
+      document.getElementById('cfg-auto-recovery').checked = true;
+      document.getElementById('cfg-audio-enabled').checked = true;
+      audioEnabled = true;
+      playTacticalTone('click');
+      showToast("🔄 Settings reset to factory defaults");
     }
 
     // Keyboard Hotkeys

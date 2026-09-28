@@ -73,11 +73,33 @@ class TelemetryIngestPacket(BaseModel):
     sensor_trust: Dict[str, float]
 
 
+class SystemSettingsModel(BaseModel):
+    cruise_altitude: float = Field(default=12.0, ge=4.0, le=35.0, description="Nominal cruise altitude (meters)")
+    cruise_speed: float = Field(default=2.8, ge=1.0, le=8.0, description="Nominal cruise horizontal speed (m/s)")
+    climb_speed: float = Field(default=1.8, ge=0.5, le=4.0, description="Vertical climb speed (m/s)")
+    descent_speed: float = Field(default=1.0, ge=0.4, le=3.0, description="Vertical descent speed during landing (m/s)")
+    rtl_altitude: float = Field(default=15.0, ge=8.0, le=40.0, description="Return-To-Launch clearance altitude (meters)")
+    overflight_clearance: float = Field(default=1.5, ge=0.8, le=5.0, description="Minimum clearance altitude above obstacles for overflight (meters)")
+    collision_margin: float = Field(default=1.8, ge=0.5, le=4.0, description="Horizontal safety buffer around physical obstacles (meters)")
+    ground_effect_enabled: bool = Field(default=True, description="Enable realistic air-cushion deceleration near touchdown surface")
+    nis_gate_threshold: float = Field(default=11.34, ge=5.0, le=25.0, description="Chi-Square NIS threshold for cyber-attack detection")
+    quarantine_threshold: float = Field(default=0.50, ge=0.1, le=0.8, description="Sensor trust threshold below which sensor is isolated")
+    recovery_threshold: float = Field(default=0.85, ge=0.5, le=0.98, description="Sensor trust threshold above which sensor is restored")
+    auto_recovery_enabled: bool = Field(default=True, description="Auto-recover sensor trust when residual returns to normal")
+    audio_alerts_enabled: bool = Field(default=True, description="Enable audio alerts for attacks and touchdown")
+
+
 class SetDestinationRequest(BaseModel):
     x: float = Field(..., description="East target coordinate (meters)")
     y: float = Field(..., description="North target coordinate (meters)")
     z: Optional[float] = Field(default=12.0, description="Altitude (meters)")
     label: Optional[str] = Field(default="TARGET_OBJECTIVE", description="Destination label")
+
+
+class RooftopLandingRequest(BaseModel):
+    x: float = Field(..., description="East target surface coordinate (meters)")
+    y: float = Field(..., description="North target surface coordinate (meters)")
+    label: Optional[str] = Field(default="ROOFTOP_LANDING", description="Landing pad designation")
 
 
 class TelemetryPacket(BaseModel):
@@ -96,6 +118,10 @@ class TelemetryPacket(BaseModel):
     isolated_sensors: List[str]
     sensor_trust: Dict[str, float]
     altitude_m: Optional[float] = 12.0
+    altitude_agl_m: Optional[float] = 12.0
+    surface_name: Optional[str] = "GROUND_TARMAC"
+    surface_elevation_m: Optional[float] = 0.0
+    target_touchdown_z: Optional[float] = 0.35
     ground_speed_mps: Optional[float] = 2.8
     roll_deg: Optional[float] = 0.0
     pitch_deg: Optional[float] = 0.0
@@ -122,8 +148,18 @@ class SystemStateManager:
         self.last_ingest_time: float = 0.0
         self.start_time = time.time()
 
+        # System Settings & Dynamic Tuning
+        self.settings = SystemSettingsModel()
+        self.cruise_altitude = self.settings.cruise_altitude
+        self.cruise_speed = self.settings.cruise_speed
+        self.climb_speed = self.settings.climb_speed
+        self.descent_speed = self.settings.descent_speed
+        self.rtl_altitude = self.settings.rtl_altitude
+        self.overflight_clearance = self.settings.overflight_clearance
+        self.collision_margin = self.settings.collision_margin
+        self.ground_effect_enabled = self.settings.ground_effect_enabled
+
         # Core Avionics & Resilient Estimators
-        self.cruise_altitude = 12.0
         self.ekf = EKF10DOF()
         self.ekf.initialize_state(position=np.array([0.0, 0.0, self.cruise_altitude]), velocity=np.array([0.0, 0.0, 0.0]))
         self.detector = ResidualDetectorEngine()
@@ -136,6 +172,13 @@ class SystemStateManager:
         self.roll_deg = 0.0
         self.pitch_deg = 0.0
         self.yaw_deg = 0.0
+
+        # Physical Surface & Elevation Engine
+        self.landing_gear_offset = 0.35
+        self.target_touchdown_z = 0.35
+        self.ground_altitude = 0.35
+        self.current_surface = "GROUND_TARMAC"
+        self.surface_elevation = 0.0
 
         # Mission Waypoints & Destination Targeting
         self.mission_type = "patrol"  # "patrol" or "target_point"
@@ -151,8 +194,7 @@ class SystemStateManager:
         self.current_wp_idx = 1
         self.emergency_landing_zone = np.array([28.0, 24.0, self.cruise_altitude])
 
-        # Flight Phase State Machine (GROUNDED, TAKEOFF, CRUISE, LANDING, LANDED, RTL_LAND)
-        self.ground_altitude = 0.35
+        # Flight Phase State Machine (GROUNDED, TAKEOFF, CRUISE, LANDING, LANDED, RTL_CLIMB, RTL_CRUISE, ROOFTOP_APPROACH)
         self.flight_phase = "CRUISE"
         self.is_airborne = True
 
@@ -179,6 +221,10 @@ class SystemStateManager:
             "position_enu": [0.0, 0.0, self.cruise_altitude],
             "velocity_enu": [0.0, 0.0, 0.0],
             "altitude_m": self.cruise_altitude,
+            "altitude_agl_m": self.cruise_altitude,
+            "surface_name": "GROUND_TARMAC",
+            "surface_elevation_m": 0.0,
+            "target_touchdown_z": 0.35,
             "ground_speed_mps": 0.0,
             "roll_deg": 0.0,
             "pitch_deg": 0.0,
@@ -205,27 +251,93 @@ class SystemStateManager:
             "is_airborne": self.is_airborne
         }
 
-    def takeoff(self, target_alt: float = 12.0):
-        """Commands vertical takeoff from ground pad to cruise altitude."""
-        self.cruise_altitude = target_alt
+    def apply_settings(self, new_settings: SystemSettingsModel):
+        """Applies runtime flight and resilience parameters immediately."""
+        self.settings = new_settings
+        self.cruise_altitude = new_settings.cruise_altitude
+        self.cruise_speed = new_settings.cruise_speed
+        self.climb_speed = new_settings.climb_speed
+        self.descent_speed = new_settings.descent_speed
+        self.rtl_altitude = new_settings.rtl_altitude
+        self.overflight_clearance = new_settings.overflight_clearance
+        self.collision_margin = new_settings.collision_margin
+        self.ground_effect_enabled = new_settings.ground_effect_enabled
+        self.detector.gate_threshold = new_settings.nis_gate_threshold
+        self.resilience.quarantine_th = new_settings.quarantine_threshold
+        self.resilience.recovery_th = new_settings.recovery_threshold
+
+    def get_surface_profile(self, x: float, y: float) -> Tuple[float, str, bool]:
+        """
+        Calculates physical surface elevation directly beneath coordinates (x, y).
+        Returns: (surface_elevation_m, surface_name, is_landable)
+        """
+        # 1. Hangar Alpha Rooftop Helipad (x=110, y=0, width X: [103.0, 117.0], length Y: [-12.0, 12.0])
+        if 103.0 <= x <= 117.0 and -12.0 <= y <= 12.0:
+            return 7.0, "HANGAR_ALPHA_ROOF", True
+
+        # 2. Hangar Beta Rooftop Helipad (x=-110, y=-50)
+        if -117.0 <= x <= -103.0 and -62.0 <= y <= -38.0:
+            return 7.0, "HANGAR_BETA_ROOF", True
+
+        # 3. Delta Radar Bunker Observation & Servicing Deck (x=-40, y=62, radius 5.0m)
+        if math.hypot(x - (-40.0), y - 62.0) <= 5.0:
+            return 3.2, "RADAR_BUNKER_DECK", True
+
+        # 4. Standard Helipads & Ground Tarmac
+        if math.hypot(x, y) <= 5.5:
+            return 0.0, "BASE_ALPHA_HELIPAD", True
+        elif math.hypot(x - 28.0, y - 24.0) <= 5.5:
+            return 0.0, "EMERGENCY_BRAVO_HELIPAD", True
+        elif math.hypot(x - 45.0, y - 30.0) <= 5.5:
+            return 0.0, "OUTPOST_CHARLIE_HELIPAD", True
+        elif math.hypot(x - (-40.0), y - 50.0) <= 5.5:
+            return 0.0, "DEPOT_DELTA_HELIPAD", True
+        elif math.hypot(x - 70.0, y - (-35.0)) <= 5.5:
+            return 0.0, "OBSERVATION_ECHO_HELIPAD", True
+
+        return 0.0, "GROUND_TARMAC", True
+
+    def takeoff(self, target_alt: Optional[float] = None):
+        """Commands vertical takeoff from current surface (ground or roof) to cruise altitude."""
+        surf_elev, surf_name, _ = self.get_surface_profile(self.drone_pos[0], self.drone_pos[1])
+        min_cruise = surf_elev + self.overflight_clearance + 2.0
+        if target_alt is not None:
+            self.cruise_altitude = max(float(target_alt), min_cruise)
+        else:
+            self.cruise_altitude = max(self.cruise_altitude, min_cruise)
+
         self.flight_phase = "TAKEOFF"
         self.is_airborne = True
-        self.drone_vel = np.array([0.0, 0.0, 1.8], dtype=np.float64)
+        self.drone_vel = np.array([0.0, 0.0, self.climb_speed], dtype=np.float64)
 
     def land(self):
-        """Commands precision vertical landing at current location."""
+        """Commands precision vertical landing onto the surface directly below (ground or roof)."""
+        self.drone_vel = np.asarray(self.drone_vel, dtype=np.float64)
+        self.drone_pos = np.asarray(self.drone_pos, dtype=np.float64)
+        surf_elev, surf_name, _ = self.get_surface_profile(float(self.drone_pos[0]), float(self.drone_pos[1]))
+        self.target_touchdown_z = surf_elev + self.landing_gear_offset
+        self.current_surface = surf_name
         self.flight_phase = "LANDING"
-        self.drone_vel[:2] *= 0.4
+        self.drone_vel[:2] *= 0.3
+
+    def land_on_surface(self, x: float, y: float, label: str = "ROOFTOP_LANDING"):
+        """Routes to surface coordinates at safe overflight altitude, then executes precision vertical touchdown."""
+        surf_elev, surf_name, _ = self.get_surface_profile(x, y)
+        transit_alt = max(self.cruise_altitude, surf_elev + self.overflight_clearance + 2.5)
+        self.set_destination(x, y, transit_alt, label)
+        self.target_touchdown_z = surf_elev + self.landing_gear_offset
+        self.flight_phase = "ROOFTOP_APPROACH"
 
     def rtl_and_land(self):
-        """Commands Return-To-Launch back to Base Alpha, followed by automatic touchdown."""
-        self.flight_phase = "RTL_LAND"
-        self.set_destination(0.0, 0.0, self.cruise_altitude, "BASE_ALPHA_RTL")
-
+        """Aviation Safety RTL: Climbs to safe RTL altitude, returns to Base Alpha, and touches down."""
+        self.flight_phase = "RTL_CLIMB"
+        self.set_destination(0.0, 0.0, self.rtl_altitude, "BASE_ALPHA_RTL")
 
     def set_destination(self, x: float, y: float, z: Optional[float] = None, label: str = "CUSTOM_OBJECTIVE"):
         """Sets an arbitrary target destination point and plans path to reach it."""
-        alt = float(z) if z is not None else self.cruise_altitude
+        surf_elev, surf_name, _ = self.get_surface_profile(float(x), float(y))
+        min_safe_alt = surf_elev + self.overflight_clearance
+        alt = float(z) if z is not None else max(self.cruise_altitude, min_safe_alt + 1.0)
         goal = np.array([float(x), float(y), alt], dtype=np.float64)
         self.target_goal = goal
         self.target_label = label
@@ -335,45 +447,99 @@ class SystemStateManager:
                 self.reset_nominal()
 
         # 1. Flight Phase State Machine & Motion Dynamics
+        self.drone_pos = np.asarray(self.drone_pos, dtype=np.float64)
+        self.drone_vel = np.asarray(self.drone_vel, dtype=np.float64)
+        surf_elev, surf_name, is_landable = self.get_surface_profile(self.drone_pos[0], self.drone_pos[1])
+        touchdown_z = surf_elev + self.landing_gear_offset
+        self.current_surface = surf_name
+        self.target_touchdown_z = touchdown_z
+
         if self.flight_phase == "LANDED":
-            self.drone_pos[2] = self.ground_altitude
+            self.drone_pos[2] = touchdown_z
             self.drone_vel = np.array([0.0, 0.0, 0.0])
             self.roll_deg = 0.0
             self.pitch_deg = 0.0
             self.is_airborne = False
         elif self.flight_phase == "TAKEOFF":
             self.is_airborne = True
-            # Vertical climb at 1.8 m/s until cruise altitude
-            self.drone_vel = np.array([0.0, 0.0, 1.8])
+            # Vertical climb at configured climb_speed
+            self.drone_vel = np.array([0.0, 0.0, self.climb_speed])
             self.drone_pos[2] += self.drone_vel[2] * dt
             if self.drone_pos[2] >= self.cruise_altitude:
                 self.drone_pos[2] = self.cruise_altitude
                 self.drone_vel = np.array([0.0, 0.0, 0.0])
                 self.flight_phase = "CRUISE"
         elif self.flight_phase == "LANDING":
-            # Dampen horizontal speed and descend vertically at 1.0 m/s
-            self.drone_vel[:2] *= 0.75
-            self.drone_vel[2] = -1.0
+            # Dampen horizontal speed
+            self.drone_vel[:2] *= 0.70
+            # Vertical descent with ground-effect air-cushion deceleration near touchdown surface
+            remaining_dist = self.drone_pos[2] - touchdown_z
+            if self.ground_effect_enabled and remaining_dist < 1.2:
+                descent_rate = max(0.25, self.descent_speed * max(0.25, remaining_dist / 1.2))
+            else:
+                descent_rate = self.descent_speed
+
+            self.drone_vel[2] = -descent_rate
             self.drone_pos[:2] += self.drone_vel[:2] * dt
             self.drone_pos[2] += self.drone_vel[2] * dt
-            if self.drone_pos[2] <= self.ground_altitude:
-                self.drone_pos[2] = self.ground_altitude
+
+            if self.drone_pos[2] <= touchdown_z:
+                self.drone_pos[2] = touchdown_z
                 self.drone_vel = np.array([0.0, 0.0, 0.0])
                 self.flight_phase = "LANDED"
                 self.is_airborne = False
+        elif self.flight_phase == "RTL_CLIMB":
+            # Climb to rtl_altitude first to ensure complete clearance of any obstacles
+            self.is_airborne = True
+            self.drone_vel[:2] *= 0.5
+            self.drone_vel[2] = self.climb_speed
+            self.drone_pos[2] += self.drone_vel[2] * dt
+            if self.drone_pos[2] >= self.rtl_altitude:
+                self.drone_pos[2] = self.rtl_altitude
+                self.flight_phase = "RTL_LAND"
         elif self.flight_phase == "RTL_LAND":
-            # Fly towards Base Alpha [0, 0] at cruise altitude, then auto-land
+            # Fly towards Base Alpha [0, 0] at rtl_altitude, then auto-land
             diff_xy = np.array([0.0, 0.0]) - self.drone_pos[:2]
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
             if dist_xy < 1.0:
                 # Aligned directly over Base Alpha helipad! Initiate precision vertical landing
+                self.target_touchdown_z = 0.35
                 self.flight_phase = "LANDING"
             else:
                 vel_dir_xy = diff_xy / (dist_xy + 1e-6)
-                speed = 2.8 * self.resilience.speed_factor
+                speed = self.cruise_speed * self.resilience.speed_factor
                 self.drone_vel = np.array([vel_dir_xy[0] * speed, vel_dir_xy[1] * speed, 0.0])
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
-                self.drone_pos[2] = self.cruise_altitude
+                self.drone_pos[2] = self.rtl_altitude
+
+                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
+                yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
+                self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
+                self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
+                self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
+        elif self.flight_phase == "ROOFTOP_APPROACH":
+            # Navigate towards rooftop target coordinates at safe transit altitude
+            target_xy = self.target_goal[:2] if self.target_goal is not None else np.array([0.0, 0.0])
+            diff_xy = target_xy - self.drone_pos[:2]
+            dist_xy = math.hypot(diff_xy[0], diff_xy[1])
+            target_alt = self.target_goal[2] if self.target_goal is not None else self.cruise_altitude
+
+            alt_diff = target_alt - self.drone_pos[2]
+            if abs(alt_diff) > 0.15:
+                self.drone_vel[2] = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
+                self.drone_pos[2] += self.drone_vel[2] * dt
+            else:
+                self.drone_pos[2] = target_alt
+                self.drone_vel[2] = 0.0
+
+            if dist_xy < 1.0:
+                # Aligned directly over rooftop landing zone! Switch to vertical precision landing
+                self.flight_phase = "LANDING"
+            else:
+                vel_dir_xy = diff_xy / (dist_xy + 1e-6)
+                speed = self.cruise_speed * self.resilience.speed_factor
+                self.drone_vel[:2] = vel_dir_xy * speed
+                self.drone_pos[:2] += self.drone_vel[:2] * dt
 
                 target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
                 yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
@@ -387,9 +553,9 @@ class SystemStateManager:
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
             if dist_xy < 1.5:
                 # Hover and slow descent
-                self.drone_pos[2] = max(self.ground_altitude, self.drone_pos[2] - 0.7 * dt)
-                self.drone_vel = np.array([0.0, 0.0, -0.7 if self.drone_pos[2] > self.ground_altitude else 0.0])
-                if self.drone_pos[2] <= self.ground_altitude:
+                self.drone_pos[2] = max(touchdown_z, self.drone_pos[2] - 0.7 * dt)
+                self.drone_vel = np.array([0.0, 0.0, -0.7 if self.drone_pos[2] > touchdown_z else 0.0])
+                if self.drone_pos[2] <= touchdown_z:
                     self.flight_phase = "LANDED"
                     self.is_airborne = False
             else:
@@ -409,7 +575,7 @@ class SystemStateManager:
             # If recovering from landing or below target cruise altitude, climb vertically
             alt_diff = target_alt - self.drone_pos[2]
             if abs(alt_diff) > 0.15:
-                climb_vel = float(np.clip(alt_diff * 2.0, -1.8, 1.8))
+                climb_vel = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
                 self.drone_vel[2] = climb_vel
                 self.drone_pos[2] += self.drone_vel[2] * dt
             else:
@@ -418,7 +584,7 @@ class SystemStateManager:
 
             diff_xy = target_wp[:2] - self.drone_pos[:2]
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
-            speed = 2.8 * self.resilience.speed_factor  # 2.8 m/s normal, ~1.8 m/s degraded
+            speed = self.cruise_speed * self.resilience.speed_factor
 
             is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
             if dist_xy < 1.5:
@@ -439,35 +605,53 @@ class SystemStateManager:
                 self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
                 self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
 
-        # Active Obstacle Awareness & Smooth Collision Prevention
+        # Active Obstacle Awareness, Physical Boundary Enforcement & Realistic Overflight
         if self.is_airborne and self.flight_phase not in ["LANDED"]:
             for obs in self.obstacles:
                 dx = self.drone_pos[0] - obs["x"]
                 dy = self.drone_pos[1] - obs["y"]
                 dist = math.hypot(dx, dy)
-                safety_dist = obs["radius"] + 2.0
+                obs_radius = obs["radius"]
                 obs_height = obs.get("height", 8.0)
+                is_roof_landable = obs.get("is_landable", False)
 
-                # Safe Overflight: If drone is flying above the obstacle height (+1.2m clearance),
-                # allow free flight and hover directly over the structure with zero repulsion.
-                if self.drone_pos[2] >= obs_height + 1.2:
+                # 1. OVERFLIGHT CHECK:
+                # If drone is higher than the obstacle + clearance, allow free overflight with zero hindrance!
+                if self.drone_pos[2] >= obs_height + self.overflight_clearance:
                     continue
 
-                # Below obstacle height and inside horizontal boundary:
-                if dist < safety_dist:
-                    if self.cruise_altitude >= obs_height + 1.2:
-                        # Climb vertically to achieve overflight clearance
-                        self.drone_vel[2] = 2.0
+                # If landing on this specific structure's rooftop and within horizontal radius, allow vertical descent
+                if self.flight_phase == "LANDING" and is_roof_landable and dist <= (obs_radius + 1.5):
+                    if self.drone_pos[2] >= obs.get("roof_elev", obs_height):
+                        continue
+
+                # 2. PHYSICAL BOUNDARY CLAMPING ("CANNOT GO THROUGH OBJECTS"):
+                # Below obstacle roof height: The structure is a solid physical entity!
+                solid_barrier = obs_radius + 0.8  # Drone chassis + safety bumper
+                safety_dist = obs_radius + self.collision_margin
+
+                if dist < solid_barrier:
+                    # Drone cannot penetrate inside! Clamp position strictly to solid surface boundary
+                    normal_dir = np.array([dx, dy]) / (dist + 1e-6)
+                    self.drone_pos[0] = obs["x"] + normal_dir[0] * solid_barrier
+                    self.drone_pos[1] = obs["y"] + normal_dir[1] * solid_barrier
+                    # Eliminate inward velocity toward obstacle (zero penetration, allows sliding)
+                    v_dot_n = self.drone_vel[0] * normal_dir[0] + self.drone_vel[1] * normal_dir[1]
+                    if v_dot_n < 0:
+                        self.drone_vel[0] -= v_dot_n * normal_dir[0]
+                        self.drone_vel[1] -= v_dot_n * normal_dir[1]
+
+                elif dist < safety_dist:
+                    # Approaching obstacle horizontally below its height:
+                    repel_dir = np.array([dx, dy]) / (dist + 1e-6)
+                    overlap = safety_dist - dist
+                    repel_accel = 4.0 * (overlap / (self.collision_margin + 1e-6))
+                    self.drone_vel[:2] += repel_dir * repel_accel * dt
+
+                    # Autonomous climb-to-clear: if cruise altitude is sufficient or set to clear
+                    if self.cruise_altitude >= obs_height + self.overflight_clearance:
+                        self.drone_vel[2] = max(self.drone_vel[2], self.climb_speed)
                         self.drone_pos[2] += self.drone_vel[2] * dt
-                    else:
-                        # Smooth horizontal velocity deflection (strictly continuous, zero position jumping)
-                        repel_dir = np.array([dx, dy]) / (dist + 1e-6)
-                        overlap = safety_dist - dist
-                        repel_accel = 3.5 * (overlap / safety_dist)
-                        self.drone_vel[:2] += repel_dir * repel_accel * dt
-                        cur_speed = math.hypot(self.drone_vel[0], self.drone_vel[1])
-                        if cur_speed > 3.0:
-                            self.drone_vel[:2] = (self.drone_vel[:2] / cur_speed) * 3.0
 
         # 2. Generate Sensor Streams with Authentic Physical Noise
         true_pos = np.copy(self.drone_pos)
@@ -593,6 +777,10 @@ class SystemStateManager:
             "position_enu": [round(float(v), 3) for v in est_state["position"]],
             "velocity_enu": [round(float(v), 3) for v in est_state["velocity"]],
             "altitude_m": round(float(est_state["position"][2]), 2),
+            "altitude_agl_m": round(float(max(0.0, est_state["position"][2] - surf_elev)), 2),
+            "surface_name": surf_name,
+            "surface_elevation_m": round(float(surf_elev), 2),
+            "target_touchdown_z": round(float(self.target_touchdown_z), 2),
             "ground_speed_mps": round(g_speed, 2),
             "roll_deg": round(self.roll_deg, 1),
             "pitch_deg": round(self.pitch_deg, 1),
@@ -823,6 +1011,29 @@ def return_to_launch():
         "flight_phase": state_manager.flight_phase,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
+
+@app.post("/navigation/land_on_surface", tags=["Navigation"])
+def land_on_surface_endpoint(req: RooftopLandingRequest):
+    state_manager.land_on_surface(req.x, req.y, req.label or "ROOFTOP_LANDING")
+    return {
+        "status": "ROOFTOP_LANDING_INITIATED",
+        "target": [req.x, req.y],
+        "label": req.label,
+        "flight_phase": state_manager.flight_phase,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.get("/settings", response_model=SystemSettingsModel, tags=["Settings"])
+def get_system_settings():
+    return state_manager.settings
+
+
+@app.post("/settings", response_model=SystemSettingsModel, tags=["Settings"])
+def update_system_settings(settings: SystemSettingsModel):
+    state_manager.apply_settings(settings)
+    return state_manager.settings
 
 
 
