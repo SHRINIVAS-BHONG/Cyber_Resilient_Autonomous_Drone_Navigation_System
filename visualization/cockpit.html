@@ -764,7 +764,7 @@
       
       <!-- Operator Path & Destination Planning Bar -->
       <div class="glass-panel hud-interactive bottom-bar" style="padding: 10px 16px;">
-        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 1.05rem;">🎯</span>
             <span style="font-size: 0.78rem; font-weight: 800; color: var(--accent-cyan); letter-spacing: 0.5px;">MISSION DESTINATION:</span>
@@ -774,18 +774,24 @@
             <span id="target-coords-txt" style="color: var(--text-secondary); margin-left: 4px;">[0, 0, 12m]</span>
           </div>
           <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--text-secondary);">
-            DIST TO GOAL: <span id="target-dist-val" style="color: var(--accent-cyan); font-weight: 700;">0.0 m</span>
+            DIST: <span id="target-dist-val" style="color: var(--accent-cyan); font-weight: 700;">0.0 m</span>
+          </div>
+          <div class="target-badge" style="border-color: rgba(16,185,129,0.4);">
+            <span>STATE:</span>
+            <span id="flight-phase-txt" style="color: #10b981; font-weight: 800; margin-left: 4px;">CRUISE</span>
           </div>
         </div>
 
         <div class="controls-panel">
-          <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700;">DISPATCH:</span>
-          <button class="btn btn-dest" id="btn-dest-charlie" onclick="sendDestination(45, 30, 12, 'OUTPOST_CHARLIE')">🏢 Outpost Charlie (45, 30)</button>
-          <button class="btn btn-dest" id="btn-dest-delta" onclick="sendDestination(-40, 50, 12, 'OBJECTIVE_DELTA')">📡 Obj Delta (-40, 50)</button>
-          <button class="btn btn-dest" id="btn-dest-echo" onclick="sendDestination(70, -35, 12, 'OBSERVATION_ECHO')">🔭 Obs Echo (70, -35)</button>
-          <button class="btn btn-rtl" onclick="sendRTL()">🏠 Return-To-Launch</button>
-          <button class="btn btn-safe" onclick="sendPatrol()">🔄 Resume Patrol</button>
-          <div class="click-hint-badge">💡 Click Ground Tarmac to Route</div>
+          <button class="btn btn-safe" onclick="sendTakeoff()">🛫 Takeoff</button>
+          <button class="btn btn-rtl" onclick="sendLand()">🛬 Land Now</button>
+          <button class="btn btn-rtl" onclick="sendRTL()">🏠 Return & Land</button>
+          <button class="btn btn-safe" onclick="sendPatrol()">🔄 Patrol</button>
+          <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 700; margin-left: 4px;">DISPATCH:</span>
+          <button class="btn btn-dest" id="btn-dest-charlie" onclick="sendDestination(45, 30, 12, 'OUTPOST_CHARLIE')">🏢 Charlie (45, 30)</button>
+          <button class="btn btn-dest" id="btn-dest-delta" onclick="sendDestination(-40, 50, 12, 'OBJECTIVE_DELTA')">📡 Delta (-40, 50)</button>
+          <button class="btn btn-dest" id="btn-dest-echo" onclick="sendDestination(70, -35, 12, 'OBSERVATION_ECHO')">🔭 Echo (70, -35)</button>
+          <div class="click-hint-badge">💡 Click Ground to Route</div>
         </div>
       </div>
 
@@ -842,8 +848,13 @@
     controls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't clip ground
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xbfdbfe, 0x1e293b, 0.85);
+    hemiLight.position.set(0, 80, 0);
+    scene.add(hemiLight);
+
 
     const sunLight = new THREE.DirectionalLight(0x38bdf8, 1.3);
     sunLight.position.set(60, 90, 40);
@@ -1030,8 +1041,10 @@
 
       scene.add(group);
     }
-    createCommTower(70, -22);
-    createCommTower(-20, -20);
+    // Positioned safely on outer perimeter boundaries away from flight corridor
+    createCommTower(120, -120);
+    createCommTower(-130, 120);
+
 
     // Low-profile Hangar Facility at Airfield Edge (x: 100, z: 0)
     function createHangar(x, z, rotY) {
@@ -1377,17 +1390,40 @@
       }
     }
 
+    async function sendTakeoff() {
+      try {
+        const res = await fetch('/navigation/takeoff', { method: 'POST' });
+        if (res.ok) {
+          showToast(`🛫 TAKEOFF: Vertical Climb to 12.0m Cruise Altitude`);
+        }
+      } catch (e) {
+        console.error("Takeoff error:", e);
+      }
+    }
+
+    async function sendLand() {
+      try {
+        const res = await fetch('/navigation/land', { method: 'POST' });
+        if (res.ok) {
+          showToast(`🛬 LANDING INITIATED: Vertical Descent for Touchdown`);
+        }
+      } catch (e) {
+        console.error("Land error:", e);
+      }
+    }
+
     async function sendRTL() {
       try {
         document.querySelectorAll('.btn-dest').forEach(b => b.classList.remove('active'));
         const res = await fetch('/navigation/rtl', { method: 'POST' });
         if (res.ok) {
-          showToast(`🏠 RETURN-TO-LAUNCH: Routing Back to Base Alpha [0, 0, 12m]`);
+          showToast(`🏠 RETURN & LAND: Routing to Base Alpha [0, 0] with Auto-Touchdown`);
         }
       } catch (e) {
         console.error("RTL error:", e);
       }
     }
+
 
     async function sendPatrol() {
       try {
@@ -1615,7 +1651,20 @@
         badge.className = 'mode-indicator';
         alertBanner.style.display = 'none';
       }
+
+      // Flight Phase & State Display
+      const flightPhase = data.flight_phase || (parseFloat(alt) < 0.5 ? 'LANDED' : 'CRUISE');
+      const phaseElem = document.getElementById('flight-phase-txt');
+      if (phaseElem) {
+        phaseElem.innerText = flightPhase;
+        if (flightPhase === 'LANDED') phaseElem.style.color = '#94a3b8';
+        else if (flightPhase === 'TAKEOFF') phaseElem.style.color = '#38bdf8';
+        else if (flightPhase === 'LANDING' || flightPhase === 'RTL_LAND') phaseElem.style.color = '#f59e0b';
+        else phaseElem.style.color = '#10b981';
+      }
+      lastTelemetry = data;
     }
+
 
     function updateTrustBar(id, val) {
       const pct = Math.max(0, Math.min(100, Math.round(val * 100)));
@@ -1724,10 +1773,13 @@
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
-      // Spin propellers at high RPM (counter-rotating pairs)
+      // Spin propellers at flight speed (or gentle idle when landed)
+      const isLanded = (lastTelemetry && (lastTelemetry.flight_phase === 'LANDED' || !lastTelemetry.is_airborne));
+      const propSpeed = isLanded ? 2.5 : 55.0;
       propAssemblies.forEach((p, idx) => {
-        p.rotation.y += (idx % 2 === 0 ? 55 : -55) * delta;
+        p.rotation.y += (idx % 2 === 0 ? propSpeed : -propSpeed) * delta;
       });
+
 
       // Tail strobe blinking
       tailStrobe.visible = Math.floor(elapsed * 4) % 2 === 0;

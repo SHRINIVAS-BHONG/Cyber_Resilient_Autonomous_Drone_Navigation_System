@@ -108,6 +108,8 @@ class TelemetryPacket(BaseModel):
     target_label: Optional[str] = "PERIMETER_PATROL"
     distance_to_goal: Optional[float] = 0.0
     planned_waypoints: Optional[List[List[float]]] = None
+    flight_phase: Optional[str] = "CRUISE"
+    is_airborne: Optional[bool] = True
 
 
 # -------------------------------------------------------------
@@ -149,6 +151,22 @@ class SystemStateManager:
         self.current_wp_idx = 1
         self.emergency_landing_zone = np.array([28.0, 24.0, self.cruise_altitude])
 
+        # Flight Phase State Machine (GROUNDED, TAKEOFF, CRUISE, LANDING, LANDED, RTL_LAND)
+        self.ground_altitude = 0.35
+        self.flight_phase = "CRUISE"
+        self.is_airborne = True
+
+        # Physical 3D Obstacles (Radar, Hangars, Perimeter Towers)
+        self.obstacles = [
+            {"x": -40.0, "y": 62.0, "radius": 5.0, "name": "DELTA_RADAR"},
+            {"x": 110.0, "y": 0.0, "radius": 9.0, "name": "HANGAR_ALPHA"},
+            {"x": -110.0, "y": -50.0, "radius": 9.0, "name": "HANGAR_BETA"},
+            {"x": 120.0, "y": -120.0, "radius": 5.0, "name": "COMM_MAST_EAST"},
+            {"x": -130.0, "y": 120.0, "radius": 5.0, "name": "COMM_MAST_WEST"},
+        ]
+        for obs in self.obstacles:
+            self.planner.add_obstacle(obs["x"], obs["y"], radius=obs["radius"])
+
         # Preload ML Model
         self.ml_model = None
         self.ml_scaler = None
@@ -182,8 +200,28 @@ class SystemStateManager:
             "target_goal": None,
             "target_label": "PERIMETER_PATROL",
             "distance_to_goal": 0.0,
-            "planned_waypoints": [[0.0, 0.0, 12.0], [24.0, 0.0, 12.0], [24.0, 24.0, 12.0], [0.0, 24.0, 12.0], [0.0, 0.0, 12.0]]
+            "planned_waypoints": [[0.0, 0.0, 12.0], [24.0, 0.0, 12.0], [24.0, 24.0, 12.0], [0.0, 24.0, 12.0], [0.0, 0.0, 12.0]],
+            "flight_phase": self.flight_phase,
+            "is_airborne": self.is_airborne
         }
+
+    def takeoff(self, target_alt: float = 12.0):
+        """Commands vertical takeoff from ground pad to cruise altitude."""
+        self.cruise_altitude = target_alt
+        self.flight_phase = "TAKEOFF"
+        self.is_airborne = True
+        self.drone_vel = np.array([0.0, 0.0, 1.8], dtype=np.float64)
+
+    def land(self):
+        """Commands precision vertical landing at current location."""
+        self.flight_phase = "LANDING"
+        self.drone_vel[:2] *= 0.4
+
+    def rtl_and_land(self):
+        """Commands Return-To-Launch back to Base Alpha, followed by automatic touchdown."""
+        self.flight_phase = "RTL_LAND"
+        self.set_destination(0.0, 0.0, self.cruise_altitude, "BASE_ALPHA_RTL")
+
 
     def set_destination(self, x: float, y: float, z: Optional[float] = None, label: str = "CUSTOM_OBJECTIVE"):
         """Sets an arbitrary target destination point and plans path to reach it."""
@@ -296,16 +334,64 @@ class SystemStateManager:
             else:
                 self.reset_nominal()
 
-        # 1. Target Waypoint Navigation & Altitude Control
-        if attack_type == "multi_attack":
+        # 1. Flight Phase State Machine & Motion Dynamics
+        if self.flight_phase == "LANDED":
+            self.drone_pos[2] = self.ground_altitude
+            self.drone_vel = np.array([0.0, 0.0, 0.0])
+            self.roll_deg = 0.0
+            self.pitch_deg = 0.0
+            self.is_airborne = False
+        elif self.flight_phase == "TAKEOFF":
+            self.is_airborne = True
+            # Vertical climb at 1.8 m/s until cruise altitude
+            self.drone_vel = np.array([0.0, 0.0, 1.8])
+            self.drone_pos[2] += self.drone_vel[2] * dt
+            if self.drone_pos[2] >= self.cruise_altitude:
+                self.drone_pos[2] = self.cruise_altitude
+                self.drone_vel = np.array([0.0, 0.0, 0.0])
+                self.flight_phase = "CRUISE"
+        elif self.flight_phase == "LANDING":
+            # Dampen horizontal speed and descend vertically at 1.0 m/s
+            self.drone_vel[:2] *= 0.75
+            self.drone_vel[2] = -1.0
+            self.drone_pos[:2] += self.drone_vel[:2] * dt
+            self.drone_pos[2] += self.drone_vel[2] * dt
+            if self.drone_pos[2] <= self.ground_altitude:
+                self.drone_pos[2] = self.ground_altitude
+                self.drone_vel = np.array([0.0, 0.0, 0.0])
+                self.flight_phase = "LANDED"
+                self.is_airborne = False
+        elif self.flight_phase == "RTL_LAND":
+            # Fly towards Base Alpha [0, 0] at cruise altitude, then auto-land
+            diff_xy = np.array([0.0, 0.0]) - self.drone_pos[:2]
+            dist_xy = math.hypot(diff_xy[0], diff_xy[1])
+            if dist_xy < 1.0:
+                # Aligned directly over Base Alpha helipad! Initiate precision vertical landing
+                self.flight_phase = "LANDING"
+            else:
+                vel_dir_xy = diff_xy / (dist_xy + 1e-6)
+                speed = 2.8 * self.resilience.speed_factor
+                self.drone_vel = np.array([vel_dir_xy[0] * speed, vel_dir_xy[1] * speed, 0.0])
+                self.drone_pos[:2] += self.drone_vel[:2] * dt
+                self.drone_pos[2] = self.cruise_altitude
+
+                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
+                yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
+                self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
+                self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
+                self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
+        elif attack_type == "multi_attack":
             # Coordinated multi-sensor compromise triggers safe landing zone descent
             target_wp = self.emergency_landing_zone
             diff_xy = target_wp[:2] - self.drone_pos[:2]
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
             if dist_xy < 1.5:
                 # Hover and slow descent
-                self.drone_pos[2] = max(0.3, self.drone_pos[2] - 0.6 * dt)
-                self.drone_vel = np.array([0.0, 0.0, -0.6 if self.drone_pos[2] > 0.3 else 0.0])
+                self.drone_pos[2] = max(self.ground_altitude, self.drone_pos[2] - 0.7 * dt)
+                self.drone_vel = np.array([0.0, 0.0, -0.7 if self.drone_pos[2] > self.ground_altitude else 0.0])
+                if self.drone_pos[2] <= self.ground_altitude:
+                    self.flight_phase = "LANDED"
+                    self.is_airborne = False
             else:
                 vel_dir_xy = diff_xy / (dist_xy + 1e-6)
                 self.drone_vel[:2] = vel_dir_xy * 2.0
@@ -348,6 +434,23 @@ class SystemStateManager:
                     self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
                     self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
                     self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
+
+        # Active Obstacle Repulsion & Collision Prevention Safety Bubble
+        if self.is_airborne:
+            for obs in self.obstacles:
+                dx = self.drone_pos[0] - obs["x"]
+                dy = self.drone_pos[1] - obs["y"]
+                dist = math.hypot(dx, dy)
+                safety_dist = obs["radius"] + 2.2
+                if dist < safety_dist and self.drone_pos[2] < 28.0:
+                    # Drone is entering obstacle margin: deflect trajectory smoothly away
+                    repel_dir = np.array([dx, dy]) / (dist + 1e-6)
+                    overlap = safety_dist - dist
+                    self.drone_pos[0] += repel_dir[0] * overlap * 1.5 * dt
+                    self.drone_pos[1] += repel_dir[1] * overlap * 1.5 * dt
+                    self.drone_vel[0] = repel_dir[0] * 1.5
+                    self.drone_vel[1] = repel_dir[1] * 1.5
+
 
         # 2. Generate Sensor Streams with Authentic Physical Noise
         true_pos = np.copy(self.drone_pos)
@@ -488,8 +591,11 @@ class SystemStateManager:
             "target_goal": [round(float(v), 2) for v in self.target_goal] if self.target_goal is not None else None,
             "target_label": self.target_label,
             "distance_to_goal": round(float(dist_to_goal), 2),
-            "planned_waypoints": [[round(float(c), 2) for c in wp] for wp in self.waypoints]
+            "planned_waypoints": [[round(float(c), 2) for c in wp] for wp in self.waypoints],
+            "flight_phase": self.flight_phase,
+            "is_airborne": self.is_airborne
         }
+
 
     def get_latest_telemetry(self) -> Dict:
         return self.current_state
@@ -663,14 +769,38 @@ def set_patrol_corridor():
     }
 
 
+@app.post("/navigation/takeoff", tags=["Navigation"])
+def takeoff_command():
+    state_manager.takeoff()
+    return {
+        "status": "TAKEOFF_INITIATED",
+        "target_altitude": state_manager.cruise_altitude,
+        "flight_phase": state_manager.flight_phase,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.post("/navigation/land", tags=["Navigation"])
+def land_command():
+    state_manager.land()
+    return {
+        "status": "LANDING_INITIATED",
+        "flight_phase": state_manager.flight_phase,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
 @app.post("/navigation/rtl", tags=["Navigation"])
 def return_to_launch():
-    state_manager.set_destination(0.0, 0.0, state_manager.cruise_altitude, "BASE_ALPHA_RTL")
+    state_manager.rtl_and_land()
     return {
         "status": "RTL_INITIATED",
         "target": [0.0, 0.0, state_manager.cruise_altitude],
+        "auto_land": True,
+        "flight_phase": state_manager.flight_phase,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
 
 
 # -------------------------------------------------------------
