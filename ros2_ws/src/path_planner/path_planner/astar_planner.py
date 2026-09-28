@@ -35,6 +35,7 @@ class AStarPlanner:
         # Occupancy grid (0: free, 1: obstacle, 2: cyber-risk zone)
         self.grid = np.zeros((self.nx, self.ny), dtype=np.uint8)
         self.cost_map = np.zeros((self.nx, self.ny), dtype=np.float32)
+        self.obstacles: List[Dict[str, float]] = []
 
     def world_to_grid(self, x: float, y: float) -> Optional[Tuple[int, int]]:
         """Convert world coordinates (meters) to discrete grid indices."""
@@ -52,8 +53,9 @@ class AStarPlanner:
         y = self.y_min + gy * self.res
         return x, y
 
-    def add_obstacle(self, x: float, y: float, radius: float = 1.0) -> None:
-        """Adds a cylindrical obstacle and inflates safety margins."""
+    def add_obstacle(self, x: float, y: float, radius: float = 1.0, height: float = 100.0) -> None:
+        """Adds a cylindrical obstacle with height and inflates safety margins."""
+        self.obstacles.append({"x": float(x), "y": float(y), "radius": float(radius), "height": float(height)})
         center = self.world_to_grid(x, y)
         if not center:
             return
@@ -90,6 +92,19 @@ class AStarPlanner:
                     if dist <= radius:
                         self.cost_map[gx, gy] += self.w_risk * risk_level
 
+    def is_cell_blocked(self, gx: int, gy: int, flight_alt: float) -> bool:
+        """Checks if a grid cell is physically blocked at the commanded flight altitude."""
+        if self.grid[gx, gy] == 0:
+            return False
+        if self.obstacles:
+            wx, wy = self.grid_to_world(gx, gy)
+            for obs in self.obstacles:
+                if (obs["height"] + 1.2) > flight_alt:
+                    if math.hypot(wx - obs["x"], wy - obs["y"]) <= obs["radius"]:
+                        return True
+            return False
+        return bool(self.grid[gx, gy] == 1)
+
     def plan(
         self,
         start_pos: Tuple[float, float, float],
@@ -105,7 +120,8 @@ class AStarPlanner:
         if not start_grid or not goal_grid:
             return None
 
-        if self.grid[start_grid[0], start_grid[1]] == 1 or self.grid[goal_grid[0], goal_grid[1]] == 1:
+        flight_alt = min(start_pos[2], goal_pos[2])
+        if self.is_cell_blocked(start_grid[0], start_grid[1], flight_alt) or self.is_cell_blocked(goal_grid[0], goal_grid[1], flight_alt):
             return None
 
         # 8-connected grid motion: (dx, dy, step_cost)
@@ -147,8 +163,8 @@ class AStarPlanner:
                 neighbor = (current[0] + dx, current[1] + dy)
                 if not (0 <= neighbor[0] < self.nx and 0 <= neighbor[1] < self.ny):
                     continue
-                if self.grid[neighbor[0], neighbor[1]] == 1:
-                    continue  # In solid obstacle
+                if self.is_cell_blocked(neighbor[0], neighbor[1], flight_alt):
+                    continue  # In solid obstacle at this flight altitude
 
                 # Path cost = distance + dynamic cyber risk / obstacle proximity
                 cell_penalty = self.cost_map[neighbor[0], neighbor[1]]

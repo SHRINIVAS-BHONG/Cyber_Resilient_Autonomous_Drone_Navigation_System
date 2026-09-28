@@ -158,14 +158,14 @@ class SystemStateManager:
 
         # Physical 3D Obstacles (Radar, Hangars, Perimeter Towers)
         self.obstacles = [
-            {"x": -40.0, "y": 62.0, "radius": 5.0, "name": "DELTA_RADAR"},
-            {"x": 110.0, "y": 0.0, "radius": 9.0, "name": "HANGAR_ALPHA"},
-            {"x": -110.0, "y": -50.0, "radius": 9.0, "name": "HANGAR_BETA"},
-            {"x": 120.0, "y": -120.0, "radius": 5.0, "name": "COMM_MAST_EAST"},
-            {"x": -130.0, "y": 120.0, "radius": 5.0, "name": "COMM_MAST_WEST"},
+            {"x": -40.0, "y": 62.0, "radius": 5.0, "height": 8.0, "name": "DELTA_RADAR"},
+            {"x": 110.0, "y": 0.0, "radius": 9.0, "height": 7.5, "name": "HANGAR_ALPHA"},
+            {"x": -110.0, "y": -50.0, "radius": 9.0, "height": 7.5, "name": "HANGAR_BETA"},
+            {"x": 120.0, "y": -120.0, "radius": 5.0, "height": 26.5, "name": "COMM_MAST_EAST"},
+            {"x": -130.0, "y": 120.0, "radius": 5.0, "height": 26.5, "name": "COMM_MAST_WEST"},
         ]
         for obs in self.obstacles:
-            self.planner.add_obstacle(obs["x"], obs["y"], radius=obs["radius"])
+            self.planner.add_obstacle(obs["x"], obs["y"], radius=obs["radius"], height=obs["height"])
 
         # Preload ML Model
         self.ml_model = None
@@ -404,58 +404,75 @@ class SystemStateManager:
         else:
             # Normal or Degraded Optical/LiDAR Cruise
             target_wp = self.waypoints[self.current_wp_idx]
+            target_alt = float(target_wp[2]) if len(target_wp) > 2 else self.cruise_altitude
 
-            # If recovering from landing, climb vertically first to cruise altitude
-            if self.drone_pos[2] < self.cruise_altitude - 0.2:
-                self.drone_pos[2] = min(self.cruise_altitude, self.drone_pos[2] + 1.5 * dt)
-                self.drone_vel = np.array([0.0, 0.0, 1.5])
+            # If recovering from landing or below target cruise altitude, climb vertically
+            alt_diff = target_alt - self.drone_pos[2]
+            if abs(alt_diff) > 0.15:
+                climb_vel = float(np.clip(alt_diff * 2.0, -1.8, 1.8))
+                self.drone_vel[2] = climb_vel
+                self.drone_pos[2] += self.drone_vel[2] * dt
             else:
-                self.drone_pos[2] = self.cruise_altitude
+                self.drone_pos[2] = target_alt
+                self.drone_vel[2] = 0.0
 
-                diff_xy = target_wp[:2] - self.drone_pos[:2]
-                dist_xy = math.hypot(diff_xy[0], diff_xy[1])
-                speed = 2.8 * self.resilience.speed_factor  # 2.8 m/s normal, ~1.8 m/s degraded
+            diff_xy = target_wp[:2] - self.drone_pos[:2]
+            dist_xy = math.hypot(diff_xy[0], diff_xy[1])
+            speed = 2.8 * self.resilience.speed_factor  # 2.8 m/s normal, ~1.8 m/s degraded
 
-                is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
-                if dist_xy < 1.5:
-                    if self.mission_type == "target_point" and is_final_wp:
-                        # Precision hover at target goal coordinate
-                        self.drone_vel = np.array([0.0, 0.0, 0.0])
-                    else:
-                        self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
+            is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
+            if dist_xy < 1.5:
+                if self.mission_type == "target_point" and is_final_wp:
+                    # Precision hover at target goal coordinate
+                    self.drone_vel[:2] = np.array([0.0, 0.0])
                 else:
-                    vel_dir_xy = diff_xy / (dist_xy + 1e-6)
-                    self.drone_vel = np.array([vel_dir_xy[0] * speed, vel_dir_xy[1] * speed, 0.0])
-                    self.drone_pos[:2] += self.drone_vel[:2] * dt
+                    self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
+            else:
+                vel_dir_xy = diff_xy / (dist_xy + 1e-6)
+                self.drone_vel[:2] = vel_dir_xy * speed
+                self.drone_pos[:2] += self.drone_vel[:2] * dt
 
-                    # Smooth Aerodynamic Attitude
-                    target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
-                    yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
-                    self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
-                    self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
-                    self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
+                # Smooth Aerodynamic Attitude
+                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
+                yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
+                self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
+                self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
+                self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
 
-        # Active Obstacle Repulsion & Collision Prevention Safety Bubble
-        if self.is_airborne:
+        # Active Obstacle Awareness & Smooth Collision Prevention
+        if self.is_airborne and self.flight_phase not in ["LANDED"]:
             for obs in self.obstacles:
                 dx = self.drone_pos[0] - obs["x"]
                 dy = self.drone_pos[1] - obs["y"]
                 dist = math.hypot(dx, dy)
-                safety_dist = obs["radius"] + 2.2
-                if dist < safety_dist and self.drone_pos[2] < 28.0:
-                    # Drone is entering obstacle margin: deflect trajectory smoothly away
-                    repel_dir = np.array([dx, dy]) / (dist + 1e-6)
-                    overlap = safety_dist - dist
-                    self.drone_pos[0] += repel_dir[0] * overlap * 1.5 * dt
-                    self.drone_pos[1] += repel_dir[1] * overlap * 1.5 * dt
-                    self.drone_vel[0] = repel_dir[0] * 1.5
-                    self.drone_vel[1] = repel_dir[1] * 1.5
+                safety_dist = obs["radius"] + 2.0
+                obs_height = obs.get("height", 8.0)
 
+                # Safe Overflight: If drone is flying above the obstacle height (+1.2m clearance),
+                # allow free flight and hover directly over the structure with zero repulsion.
+                if self.drone_pos[2] >= obs_height + 1.2:
+                    continue
+
+                # Below obstacle height and inside horizontal boundary:
+                if dist < safety_dist:
+                    if self.cruise_altitude >= obs_height + 1.2:
+                        # Climb vertically to achieve overflight clearance
+                        self.drone_vel[2] = 2.0
+                        self.drone_pos[2] += self.drone_vel[2] * dt
+                    else:
+                        # Smooth horizontal velocity deflection (strictly continuous, zero position jumping)
+                        repel_dir = np.array([dx, dy]) / (dist + 1e-6)
+                        overlap = safety_dist - dist
+                        repel_accel = 3.5 * (overlap / safety_dist)
+                        self.drone_vel[:2] += repel_dir * repel_accel * dt
+                        cur_speed = math.hypot(self.drone_vel[0], self.drone_vel[1])
+                        if cur_speed > 3.0:
+                            self.drone_vel[:2] = (self.drone_vel[:2] / cur_speed) * 3.0
 
         # 2. Generate Sensor Streams with Authentic Physical Noise
         true_pos = np.copy(self.drone_pos)
-        gps_meas = true_pos + np.random.normal(0.0, 0.15, size=(3,))
-        gps_vel_meas = self.drone_vel + np.random.normal(0.0, 0.04, size=(3,))
+        gps_meas = true_pos + np.random.normal(0.0, 0.12, size=(3,))
+        gps_vel_meas = self.drone_vel + np.random.normal(0.0, 0.03, size=(3,))
         imu_accel = np.array([0.0, 0.0, 9.80665]) + np.random.normal(0.0, 0.02, size=(3,))
         lidar_z = float(true_pos[2] + np.random.normal(0.0, 0.03))
         vision_pos = true_pos + np.random.normal(0.0, 0.04, size=(3,))
@@ -481,9 +498,15 @@ class SystemStateManager:
         used_accel = np.array([0.0, 0.0, 9.80665]) if "imu" in self.resilience.isolated_sensors else imu_accel
         self.ekf.predict(accel=used_accel, gyro_z=0.0, dt=dt)
 
-        # 5. EKF Update & Residual Extraction
-        gps_res = self.ekf.update_gps(gps_meas, vel_meas=gps_vel_meas, reject_anomaly=False)
-        gps_nis = float(gps_res["position"]["nis"])
+        # 5. Extract GPS Innovation Residual & Evaluate Detector from Prior Prediction
+        H_pos = np.zeros((3, self.ekf.dim_x), dtype=np.float64)
+        H_pos[0:3, 0:3] = np.eye(3)
+        y_pos = gps_meas.reshape(3, 1) - H_pos @ self.ekf.x
+        S_pos = H_pos @ self.ekf.P @ H_pos.T + self.ekf.R_gps_pos
+        gps_nis = float((y_pos.T @ np.linalg.pinv(S_pos) @ y_pos).item())
+        diag_S = np.diag(S_pos)
+        diag_S = np.where(diag_S > 1e-12, diag_S, 1e-12)
+        gps_norm_res = (y_pos.flatten() / np.sqrt(diag_S)).flatten()
 
         # 6. Statistical Chi-Square Residual Detector & Resilience Policy
         det_res = self.detector.process_sensor_residual(sensor_name="gps", nis=gps_nis)
@@ -534,7 +557,7 @@ class SystemStateManager:
         elif self.ml_model and self.ml_scaler:
             feat_vec = np.array([[
                 gps_nis,
-                float(np.linalg.norm(gps_res["position"]["normalized_residual"])),
+                float(np.linalg.norm(gps_norm_res)),
                 0.1,
                 0.05,
                 0.01,

@@ -120,4 +120,5 @@ class ResilienceManagerEngine:
         is_anomaly = float(nis) > gate_threshold
         self.update_sensor_health(sensor_name, is_anomaly=is_anomaly)
         attack_status = "ATTACK_CONFIRMED" if len(self.isolated_sensors) > 0 else "NORMAL"
-        return self.evaluate_resilience_policy(attack_status, list(self.isolated_sensors))
+        return self.evaluate_resilience_policy(attack_status, [])
+

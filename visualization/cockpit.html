@@ -376,6 +376,26 @@
       color: #030712;
       font-weight: 700;
     }
+    .btn-cam-chip {
+      padding: 4px 8px;
+      font-size: 0.73rem;
+      font-weight: 600;
+      border-radius: 6px;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-cam-chip:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--accent-cyan);
+      color: #fff;
+      transform: translateY(-1px);
+    }
 
     /* Target Goal Status Badge */
     .target-badge {
@@ -807,13 +827,24 @@
           <button class="btn btn-safe" onclick="clearAttacks()">🛡️ Clear / Nominal</button>
         </div>
 
-        <!-- Camera Perspectives -->
+        <!-- Camera Perspectives & Fast View Shifting -->
         <div class="glass-panel controls-panel hud-interactive">
-          <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-right: 4px;">🎥 VIEW:</span>
-          <button class="btn btn-view active" id="btn-cam-orbit" onclick="setCameraMode('orbit')">Orbit 3D</button>
-          <button class="btn btn-view" id="btn-cam-chase" onclick="setCameraMode('chase')">Chase Cam</button>
-          <button class="btn btn-view" id="btn-cam-fpv" onclick="setCameraMode('fpv')">Cockpit FPV</button>
-          <button class="btn btn-view" id="btn-cam-top" onclick="setCameraMode('top')">Top Down</button>
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); margin-right: 4px;">🎥 CAM:</span>
+          <button class="btn btn-view active" id="btn-cam-track" onclick="setCameraMode('track')" title="Auto-track drone with free orbit & zoom (Space)">🛸 Track Drone</button>
+          <button class="btn btn-view" id="btn-cam-goal" onclick="setCameraMode('goal')" title="Glide camera to current destination beacon (F)">🎯 Focus Goal</button>
+          <button class="btn btn-view" id="btn-cam-orbit" onclick="setCameraMode('orbit')" title="Free 3D orbit around center">Orbit 3D</button>
+          <button class="btn btn-view" id="btn-cam-chase" onclick="setCameraMode('chase')" title="3rd-person trailing chase cam">Chase</button>
+          <button class="btn btn-view" id="btn-cam-fpv" onclick="setCameraMode('fpv')" title="1st-person nose cockpit view">FPV</button>
+          <button class="btn btn-view" id="btn-cam-top" onclick="setCameraMode('top')" title="Top-down tactical satellite view">Top Down</button>
+          
+          <span style="border-left: 1px solid rgba(255,255,255,0.18); height: 18px; margin: 0 4px;"></span>
+          <span style="font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); margin-right: 2px;">SWIFT TO:</span>
+          <button class="btn btn-cam-chip" onclick="glideToPosition(0, 0, 'Base Alpha')" title="Glide camera to Base Alpha">🏠 Base</button>
+          <button class="btn btn-cam-chip" onclick="glideToPosition(45, 30, 'Outpost Charlie')" title="Glide to Outpost Charlie">🏢 Charlie</button>
+          <button class="btn btn-cam-chip" onclick="glideToPosition(-40, 50, 'Objective Delta')" title="Glide to Objective Delta">📡 Delta</button>
+          <button class="btn btn-cam-chip" onclick="glideToPosition(70, -35, 'Observation Echo')" title="Glide to Observation Echo">🔭 Echo</button>
+          <button class="btn btn-cam-chip" onclick="glideToPosition(110, 0, 'Hangar Alpha')" title="Glide to Hangar Alpha">🏭 Hangar</button>
+          <button class="btn btn-cam-chip" onclick="glideToOverview()" title="Airfield Tactical Overview">🌐 Overview</button>
         </div>
       </div>
 
@@ -1355,6 +1386,18 @@
       }
     });
 
+    window.addEventListener('dblclick', (e) => {
+      if (e.target !== renderer.domElement) return;
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(tarmac);
+      if (intersects.length > 0) {
+        const hit = intersects[0].point;
+        glideToPosition(Math.round(hit.x * 10) / 10, Math.round(hit.z * 10) / 10, 'Selected Coordinate');
+      }
+    });
+
     function showToast(msg) {
       const toast = document.getElementById('tactical-toast');
       if (toast) {
@@ -1440,7 +1483,11 @@
     // -------------------------------------------------------------
     // WebSocket Telemetry Bridge & Live Updating
     // -------------------------------------------------------------
-    let currentCamMode = 'orbit';
+    let currentCamMode = 'track'; // Default to auto-tracking drone with full orbit/zoom
+    const targetOrbitCenter = new THREE.Vector3(0, 12, 0);
+    let targetCamPos = null;
+    let isTransitioningCam = false;
+    let lastTelemetry = null;
     const nisHistory = [];
     const maxNisPoints = 50;
 
@@ -1477,22 +1524,62 @@
       }
     }, 200);
 
+    function glideToPosition(x, z, label = "Sector") {
+      setCameraMode('orbit');
+      const destTarget = new THREE.Vector3(x, 4.0, z);
+      const destCam = new THREE.Vector3(x + 28, 25.0, z + 28);
+      glideCameraTo(destTarget, destCam);
+      showToast(`🔭 VIEW SHIFTING TO: ${label} [X: ${x}, Z: ${z}]`);
+    }
+
+    function glideToOverview() {
+      setCameraMode('orbit');
+      glideCameraTo(new THREE.Vector3(16, 4, 16), new THREE.Vector3(80, 85, 80));
+      showToast(`🌐 VIEW: Full Airfield Tactical Overview`);
+    }
+
+    function glideCameraTo(targetVec, camPosVec = null) {
+      targetOrbitCenter.copy(targetVec);
+      if (camPosVec) {
+        targetCamPos = camPosVec.clone();
+      } else {
+        const offset = camera.position.clone().sub(controls.target);
+        targetCamPos = targetVec.clone().add(offset);
+      }
+      isTransitioningCam = true;
+    }
+
     function setCameraMode(mode) {
       currentCamMode = mode;
       document.querySelectorAll('.btn-view').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById(`btn-cam-${mode}`);
       if (activeBtn) activeBtn.classList.add('active');
 
-      if (mode === 'orbit') {
+      if (mode === 'track') {
         controls.enabled = true;
-        camera.position.set(48, 36, 48);
-        controls.target.set(16, 8, 16);
+        isTransitioningCam = false;
+        showToast('🛸 CAMERA: Tracking Drone (Free Orbit & Zoom Active)');
+      } else if (mode === 'goal') {
+        controls.enabled = true;
+        if (lastTelemetry && lastTelemetry.target_goal) {
+          const tg = lastTelemetry.target_goal;
+          glideCameraTo(new THREE.Vector3(tg[0], tg[2] || 12, tg[1]), new THREE.Vector3(tg[0] + 24, 22, tg[1] + 24));
+          showToast(`🎯 CAMERA: Centered on Target Goal [${tg[0].toFixed(1)}, ${tg[1].toFixed(1)}]`);
+        } else {
+          showToast('🎯 Focus Goal: Perimeter Patrol Route Active');
+        }
+      } else if (mode === 'orbit') {
+        controls.enabled = true;
+        showToast('🔄 CAMERA: Free Orbit 3D Mode');
       } else if (mode === 'top') {
         controls.enabled = true;
-        camera.position.set(16, 120, 16);
-        controls.target.set(16, 0, 16);
+        const center = (currentCamMode === 'track') ? droneGroup.position : controls.target;
+        glideCameraTo(new THREE.Vector3(center.x, 0, center.z), new THREE.Vector3(center.x, 110, center.z + 0.1));
+        showToast('🗺️ CAMERA: Tactical Top-Down Satellite View');
       } else {
         controls.enabled = false;
+        if (mode === 'chase') showToast('🏎️ CAMERA: 3rd-Person Chase Cam');
+        if (mode === 'fpv') showToast('🛩️ CAMERA: Cockpit FPV Pilot View');
       }
     }
 
@@ -1536,9 +1623,10 @@
       if (realTrailPoints.length > MAX_TRAIL) realTrailPoints.shift();
       realTrailGeo.setFromPoints(realTrailPoints);
 
-      // Ghost trail & Attack Vector Line
-      const isAttack = (data.chi2_attack_state !== "NORMAL") || (data.navigation_mode !== "NORMAL_MISSION");
-      if (isAttack) {
+      // Ghost trail & Attack Vector Line (only when GPS spoof offset exists)
+      const gpsDriftDist = Math.hypot(rawGps[0] - pos[0], rawGps[1] - pos[1]);
+      const hasActiveGpsSpoof = gpsDriftDist > 2.0;
+      if (hasActiveGpsSpoof) {
         ghostDrone.visible = true;
         attackVectorGeo.setFromPoints([droneGroup.position, ghostDrone.position]);
         attackVectorLine.computeLineDistances();
@@ -1555,6 +1643,7 @@
         spoofTrailLine.visible = false;
         spoofTrailPoints.length = 0;
       }
+
 
       // Update Destination Beacon & Planned Trajectory
       const missionType = data.mission_type || "patrol";
@@ -1643,14 +1732,34 @@
       mlElem.innerText = `${mlClass} (${mlConf}%)`;
       mlElem.style.color = (mlClass === 'NORMAL') ? '#10b981' : '#ef4444';
 
-      if (isAttack) {
+      const isUnderActiveAttack = (data.chi2_attack_state !== "NORMAL") || (nisVal > 11.34) || (mlClass !== "NORMAL");
+      const isDegraded = (navMode !== "NORMAL_MISSION");
+
+      if (isUnderActiveAttack) {
         badge.className = 'mode-indicator attack';
+        badge.style.background = '';
+        badge.style.borderColor = '';
+        badge.style.color = '';
         alertBanner.style.display = 'flex';
-        alertTxt.innerText = `🚨 CYBER-ATTACK CONFIRMED: ${mlClass} (NIS: ${nisVal.toFixed(1)} > 11.34) • SENSOR ISOLATED • RESILIENCE ACTIVE`;
+        alertBanner.style.background = 'rgba(239, 68, 68, 0.92)';
+        alertTxt.innerText = `🚨 CYBER-ATTACK DETECTED: ${mlClass} (NIS: ${nisVal.toFixed(1)} > 11.34) • SENSOR ISOLATED • RESILIENCE ACTIVE`;
+      } else if (isDegraded) {
+        badge.className = 'mode-indicator';
+        badge.style.background = 'rgba(245, 158, 11, 0.2)';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.6)';
+        badge.style.color = '#fcd34d';
+        alertBanner.style.display = 'flex';
+        alertBanner.style.background = 'rgba(245, 158, 11, 0.90)';
+        const isolatedSensors = data.isolated_sensors?.join(', ') || 'GPS';
+        alertTxt.innerText = `🛡️ FAILSAFE ACTIVE: Flying on Optical Flow + LiDAR • Quarantined: [${isolatedSensors}] • Attack Ceased`;
       } else {
         badge.className = 'mode-indicator';
+        badge.style.background = '';
+        badge.style.borderColor = '';
+        badge.style.color = '';
         alertBanner.style.display = 'none';
       }
+
 
       // Flight Phase & State Display
       const flightPhase = data.flight_phase || (parseFloat(alt) < 0.5 ? 'LANDED' : 'CRUISE');
@@ -1756,7 +1865,19 @@
 
     // Keyboard Hotkeys
     window.addEventListener('keydown', (e) => {
-      if (e.key === '3') triggerAttack('gps_spoofing', 25.0);
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setCameraMode('track');
+      } else if (e.key === 'f' || e.key === 'F') {
+        setCameraMode('goal');
+      } else if (e.key === 'h' || e.key === 'H') {
+        glideToPosition(0, 0, 'Base Alpha');
+      } else if (e.key === 'v' || e.key === 'V') {
+        const modes = ['track', 'goal', 'orbit', 'chase', 'fpv', 'top'];
+        const nextIdx = (modes.indexOf(currentCamMode) + 1) % modes.length;
+        setCameraMode(modes[nextIdx]);
+      } else if (e.key === '3') triggerAttack('gps_spoofing', 25.0);
       else if (e.key === '4') triggerAttack('imu_manipulation', 2.5);
       else if (e.key === '5') triggerAttack('lidar_corruption', 7.0);
       else if (e.key === '6') triggerAttack('multi_attack', 20.0);
@@ -1780,7 +1901,6 @@
         p.rotation.y += (idx % 2 === 0 ? propSpeed : -propSpeed) * delta;
       });
 
-
       // Tail strobe blinking
       tailStrobe.visible = Math.floor(elapsed * 4) % 2 === 0;
 
@@ -1790,6 +1910,20 @@
         const pulse = 1.0 + 0.15 * Math.sin(elapsed * 4);
         destGroundRing.scale.set(pulse, pulse, pulse);
         laserMat.opacity = 0.5 + 0.25 * Math.sin(elapsed * 6);
+      }
+
+      // Smooth Camera Transitions & Tracking
+      if (currentCamMode === 'track') {
+        // Smoothly track drone in 3D orbit
+        controls.target.lerp(droneGroup.position, 0.08);
+      } else if (isTransitioningCam) {
+        controls.target.lerp(targetOrbitCenter, 0.08);
+        if (targetCamPos) {
+          camera.position.lerp(targetCamPos, 0.08);
+          if (camera.position.distanceTo(targetCamPos) < 0.4 && controls.target.distanceTo(targetOrbitCenter) < 0.4) {
+            isTransitioningCam = false;
+          }
+        }
       }
 
       // Update Orbit controls if active
