@@ -1,29 +1,25 @@
 # Cyber-Resilient Autonomous Drone Navigation System
-# Core Runtime Dependencies (Clean, Optimized, Zero Bloat)
+# Dependencies specified in Section 14 of System Plan
 
-# Numerical Computing & Linear Algebra
+# Core Scientific & Computing
 numpy>=1.24.0,<2.0.0
 scipy>=1.10.0
-
-# Data Processing & Persistence
 pandas>=2.0.0
-joblib>=1.3.0
-pyyaml>=6.0
 
-# Machine Learning & Statistical Modeling
+# Machine Learning
 scikit-learn>=1.3.0
+joblib>=1.3.0
 
-# Backend REST & WebSocket Telemetry Gateway
-fastapi>=0.100.0
-uvicorn[standard]>=0.23.0
-pydantic>=2.0.0
-requests>=2.31.0
-websockets>=12.0
-
-# Publication & Verification Plotting
+# Visualization & Dashboards
 matplotlib>=3.7.0
+plotly>=5.15.0
+streamlit>=1.25.0
 
-# Automated Testing & Verification
+# Configuration & Data Formats
+pyyaml>=6.0
+rosbags>=0.9.15
+
+# Testing & Experiment Tracking
 pytest>=7.4.0
-pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
+mlflow>=2.5.0

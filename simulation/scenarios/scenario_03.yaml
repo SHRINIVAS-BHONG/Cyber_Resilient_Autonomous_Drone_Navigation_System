@@ -1,0 +1,26 @@
+id: scenario_03
+name: 'Scenario 03: Slow GPS Drift'
+category: GPS Attack
+random_seed: 101
+attack_type: gps_spoofing
+attack_start_time: 10.0
+attack_duration: 20.0
+attack_parameters:
+  mode: slow_drift
+  position_bias:
+    x: 15.0
+    y: -10.0
+    z: 0.0
+  ramp_duration: 5.0
+mission_waypoints:
+- - 0.0
+  - 0.0
+  - 10.0
+- - 30.0
+  - 0.0
+  - 10.0
+- - 60.0
+  - 0.0
+  - 10.0
+expected_detector_response: ATTACK_CONFIRMED
+expected_recovery_mode: SAFE_LOCAL_NAVIGATION

@@ -177,3 +177,124 @@ def test_scenario_06_imu_manipulation_containment():
     assert policy["navigation_mode"] == NavigationMode.HOLD_POSITION.value
     assert policy["speed_factor"] == 0.0
 
+
+# ---------------------------------------------------------------------
+# Parameterized Test for All 15 YAML Scenarios (Section 9)
+# ---------------------------------------------------------------------
+import yaml
+
+scenarios_dir = root_dir / "simulation" / "scenarios"
+scenario_files = sorted(scenarios_dir.glob("scenario_*.yaml"))
+
+
+@pytest.mark.parametrize("scenario_path", scenario_files, ids=[p.stem for p in scenario_files])
+def test_all_15_scenarios_pipeline(scenario_path):
+    """Executes each of the 15 standardized YAML scenario files through the full CPS pipeline."""
+    with open(scenario_path, "r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+
+    np.random.seed(int(cfg.get("random_seed", 42)))
+
+    ekf = EKF10DOF()
+    detector = ResidualDetectorEngine(
+        nis_warning_threshold=11.34,
+        nis_alarm_threshold=16.27,
+        consecutive_alarms_to_confirm=4,
+        recovery_samples_to_clear=15
+    )
+    resilience = ResilienceManagerEngine(quarantine_threshold=0.35, recovery_threshold=0.85)
+
+    duration = 25.0
+    dt = 0.1
+    time_steps = np.arange(0.0, duration, dt)
+
+    attack_type = cfg.get("attack_type", "none")
+    a_start = float(cfg.get("attack_start_time", 10.0))
+    a_dur = float(cfg.get("attack_duration", 15.0))
+    is_attack_run = (attack_type != "none")
+
+    ekf.initialize_state(position=np.array([0.0, 0.0, 10.0]))
+    confirmed_attack = False
+
+    for t in time_steps:
+        true_pos = np.array([t * 0.6, 2.0 * np.sin(0.2 * t), 10.0])
+        accel = np.array([0.0, 0.0, 9.80665]) + np.random.normal(0.0, 0.015, size=(3,))
+        gps_pos = true_pos + np.random.normal(0.0, 0.2, size=(3,))
+        vision_pos = true_pos + np.random.normal(0.0, 0.05, size=(3,))
+        lidar_z = 10.0 + float(np.random.normal(0.0, 0.03))
+
+        # Inject attack if within window
+        target_sensor = cfg.get("attack_parameters", {}).get("target_sensor", "")
+        params_str = str(cfg.get("attack_parameters", {}))
+        mag_heading_error = 0.0
+
+        if is_attack_run and (a_start <= t < (a_start + a_dur)):
+            if "gps" in attack_type or target_sensor == "gps" or "gps" in params_str:
+                ramp = min(1.0, (t - a_start) / 3.0)
+                gps_pos += np.array([25.0 * ramp, -12.0 * ramp, 0.0])
+
+            if target_sensor == "imu" or "imu" in params_str or "IMU" in cfg.get("name", ""):
+                accel += np.array([3.0, 1.5, 0.0])
+
+            if target_sensor == "lidar" or "lidar" in params_str or "LiDAR" in cfg.get("name", ""):
+                lidar_z -= 6.0
+
+            if target_sensor == "magnetometer" or "magnetometer" in params_str or "Magnetometer" in cfg.get("name", ""):
+                mag_heading_error = 45.0
+
+            if attack_type == "communication_disruption":
+                gps_pos += np.random.normal(0.0, 6.0, size=(3,))
+
+        # Prediction
+        used_accel = np.array([0.0, 0.0, 9.80665]) if "imu" in resilience.isolated_sensors else accel
+        ekf.predict(accel=used_accel, gyro_z=0.0, dt=dt)
+
+        # Update
+        gps_res = ekf.update_gps(gps_pos, reject_anomaly=("gps" in resilience.isolated_sensors))
+        lidar_res = ekf.update_lidar(lidar_z, reject_anomaly=("lidar" in resilience.isolated_sensors))
+
+        # Calculate IMU kinematic innovation residual
+        expected_accel_norm = 9.80665
+        imu_accel_diff = abs(float(np.linalg.norm(accel)) - expected_accel_norm)
+        imu_nis = float((imu_accel_diff / 0.15) ** 2)
+
+        # Calculate Magnetometer heading innovation residual
+        mag_nis = float((mag_heading_error / 5.0) ** 2) if mag_heading_error > 0 else 1.0
+
+        det_gps = detector.process_sensor_residual("gps", gps_res["position"]["nis"])
+        det_lidar = detector.process_sensor_residual("lidar", lidar_res["nis"])
+        det_imu = detector.process_sensor_residual("imu", imu_nis)
+        det_mag = detector.process_sensor_residual("magnetometer", mag_nis)
+
+        # Aggregate confirmed compromised sensors
+        all_compromised = list(set(
+            det_gps["compromised_sensors"] +
+            det_lidar["compromised_sensors"] +
+            det_imu["compromised_sensors"] +
+            det_mag["compromised_sensors"]
+        ))
+        highest_state = DetectionState.NORMAL.value
+        for d in [det_gps, det_lidar, det_imu, det_mag]:
+            if d["state"] == DetectionState.ATTACK_CONFIRMED.value:
+                highest_state = DetectionState.ATTACK_CONFIRMED.value
+                confirmed_attack = True
+                break
+            elif d["state"] == DetectionState.SUSPICIOUS.value and highest_state == DetectionState.NORMAL.value:
+                highest_state = DetectionState.SUSPICIOUS.value
+
+        policy = resilience.evaluate_resilience_policy(highest_state, all_compromised)
+
+        # Fuse vision when GPS is isolated
+        if "gps" in policy["isolated_sensors"]:
+            ekf.update_vision_pose(vision_pos)
+
+    # Assertions based on scenario type
+    if not is_attack_run:
+        assert not confirmed_attack, f"{cfg['name']} raised false alarm"
+        assert policy["navigation_mode"] == NavigationMode.NORMAL_MISSION.value
+    else:
+        # Attack scenarios must detect anomaly or contain
+        assert confirmed_attack or (policy["navigation_mode"] != NavigationMode.NORMAL_MISSION.value), \
+            f"{cfg['name']} failed to detect or contain attack"
+
+

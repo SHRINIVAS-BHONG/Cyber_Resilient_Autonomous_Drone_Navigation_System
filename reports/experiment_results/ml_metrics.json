@@ -5,8 +5,8 @@
   "macro_precision": 1.0,
   "macro_recall": 1.0,
   "macro_f1": 1.0,
-  "inference_latency_ms": 0.02,
-  "throughput_hz": 48950.2,
+  "inference_latency_ms": 0.022,
+  "throughput_hz": 45239.3,
   "per_class_metrics": {
     "NORMAL": {
       "precision": 1.0,

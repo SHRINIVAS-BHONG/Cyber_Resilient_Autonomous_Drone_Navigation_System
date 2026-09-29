@@ -1,0 +1,20 @@
+id: scenario_01
+name: 'Scenario 01: Baseline Normal Flight'
+category: Baseline
+random_seed: 42
+attack_type: none
+attack_start_time: 0.0
+attack_duration: 0.0
+attack_parameters: {}
+mission_waypoints:
+- - 0.0
+  - 0.0
+  - 10.0
+- - 20.0
+  - 0.0
+  - 10.0
+- - 40.0
+  - 0.0
+  - 10.0
+expected_detector_response: NORMAL
+expected_recovery_mode: NORMAL_MISSION

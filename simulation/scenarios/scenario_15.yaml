@@ -1,0 +1,30 @@
+id: scenario_15
+name: 'Scenario 15: GPS Spoofing Plus LiDAR Corruption'
+category: Combined Attack
+random_seed: 403
+attack_type: combined_attack
+attack_start_time: 10.0
+attack_duration: 20.0
+attack_parameters:
+  attacks:
+  - sensor: gps
+    mode: slow_drift
+    bias:
+    - 20.0
+    - -15.0
+    - 0.0
+  - sensor: lidar
+    mode: compression
+    offset: -5.0
+mission_waypoints:
+- - 0.0
+  - 0.0
+  - 10.0
+- - 30.0
+  - 0.0
+  - 10.0
+- - 60.0
+  - 0.0
+  - 10.0
+expected_detector_response: ATTACK_CONFIRMED
+expected_recovery_mode: SAFE_LOCAL_NAVIGATION

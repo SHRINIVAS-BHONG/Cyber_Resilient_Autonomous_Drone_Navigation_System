@@ -1,0 +1,23 @@
+id: scenario_09
+name: 'Scenario 09: Magnetometer Heading Disturbance'
+category: Sensor Manipulation
+random_seed: 204
+attack_type: sensor_manipulation
+attack_start_time: 10.0
+attack_duration: 15.0
+attack_parameters:
+  target_sensor: magnetometer
+  heading_bias_deg: 45.0
+  flux_distortion_gauss: 0.8
+mission_waypoints:
+- - 0.0
+  - 0.0
+  - 10.0
+- - 20.0
+  - 0.0
+  - 10.0
+- - 40.0
+  - 0.0
+  - 10.0
+expected_detector_response: ATTACK_CONFIRMED
+expected_recovery_mode: SAFE_LOCAL_NAVIGATION
