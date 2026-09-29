@@ -110,8 +110,8 @@ def test_ml_inference_latency(ml_artifacts):
     model = ml_artifacts["model"]
     scaler = ml_artifacts["scaler"]
 
-    dummy_batch = np.random.normal(0.0, 1.0, size=(100, 13))
-    scaled = scaler.transform(dummy_batch)
+    test_telemetry_batch = np.random.normal(0.0, 1.0, size=(100, 13))
+    scaled = scaler.transform(test_telemetry_batch)
 
     t0 = time.perf_counter()
     _ = model.predict(scaled)

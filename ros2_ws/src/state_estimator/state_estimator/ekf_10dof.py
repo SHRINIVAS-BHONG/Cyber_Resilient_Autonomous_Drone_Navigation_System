@@ -351,6 +351,16 @@ class EKF10DOF:
             "is_gated": is_gated
         }
 
+    @property
+    def state(self) -> np.ndarray:
+        """Convenience property for current 10x1 state estimate vector."""
+        return self.x
+
+    @property
+    def covariance(self) -> np.ndarray:
+        """Convenience property for current 10x10 state covariance matrix."""
+        return self.P
+
     def get_state(self) -> Dict[str, np.ndarray]:
         """Returns readable dictionary of current estimates and uncertainties."""
         return {

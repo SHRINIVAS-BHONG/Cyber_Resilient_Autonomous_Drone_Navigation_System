@@ -110,7 +110,7 @@ def simulate_scenario_telemetry(scenario_cfg: dict, duration: int, a_start: floa
     time_steps = np.arange(0.0, duration, dt)
 
     ekf = EKF10DOF()
-    detector = ResidualDetectorEngine(high_threshold=16.27, low_threshold=6.25, consecutive_alarms_to_confirm=4)
+    detector = ResidualDetectorEngine(nis_alarm_threshold=16.27, nis_warning_threshold=11.34, consecutive_alarms_to_confirm=4)
     resilience = ResilienceManagerEngine(quarantine_threshold=0.35, recovery_threshold=0.80)
     planner = AStarPlanner(grid_resolution=1.0)
     ml_rf, ml_scaler, ml_feats = get_ml_model()
@@ -185,26 +185,27 @@ def simulate_scenario_telemetry(scenario_cfg: dict, duration: int, a_start: floa
 
         if ml_rf and ml_scaler and ml_feats:
             try:
-                gps_vel_norm = float(np.linalg.norm(ekf.state[3:6]))
+                accel_diff = float(abs(np.linalg.norm(accel) - 9.80665))
+                pos_err = float(np.linalg.norm(gps_pos - vision_pos))
                 feat_vals = np.array([[
-                    float(np.linalg.norm(gps_res["position"]["innovation"])),
-                    gps_vel_norm,
-                    float(np.linalg.norm(ekf.state[6:9])),
+                    gps_nis,
+                    pos_err,
+                    float(np.linalg.norm(ekf.x[3:6])),
+                    accel_diff,
                     float(np.var(accel)),
-                    float(abs(gps_pos[2] - lidar_z)),
-                    float(np.linalg.norm(gps_pos - vision_pos)),
-                    0.02,
-                    10.0,
-                    0.05,
-                    0.0,
-                    float(np.trace(ekf.covariance[:3, :3])),
-                    float(np.linalg.norm(ekf.state[0:3] - true_pos)),
-                    gps_nis
+                    float(abs(gyro_z)),
+                    lidar_nis,
+                    float(abs(lidar_z - vision_pos[2])),
+                    pos_err,
+                    float(abs(lidar_z - vision_pos[2])),
+                    0.05 if not (gps_nis > 16.27 or accel_diff > 1.5) else 2.0,
+                    1.0 if not (gps_nis > 16.27 or accel_diff > 1.5) else 0.0,
+                    1.0 if not (gps_nis > 16.27 or accel_diff > 1.5) else 0.0
                 ]])
                 scaled = ml_scaler.transform(feat_vals)
                 probs = ml_rf.predict_proba(scaled)[0]
                 pred_idx = int(np.argmax(probs))
-                class_labels = {0: "NORMAL", 1: "GPS_SPOOFING", 2: "IMU_MANIPULATION", 3: "LIDAR_CORRUPTION", 4: "COMMUNICATION_DISRUPTION", 5: "MIXED_ATTACK"}
+                class_labels = {0: "NORMAL", 1: "GPS_SPOOFING", 2: "IMU_MANIPULATION", 3: "LIDAR_CORRUPTION"}
                 ml_pred_name = class_labels.get(pred_idx, "ATTACK")
                 ml_conf = float(probs[pred_idx])
                 if len(probs) >= 4:
@@ -220,12 +221,14 @@ def simulate_scenario_telemetry(scenario_cfg: dict, duration: int, a_start: floa
             ekf.update_vision_pose(vision_pos)
 
         # Path replanning if containment triggered
-        if policy["navigation_mode"] in [NavigationMode.SAFE_LOCAL_NAVIGATION.value, NavigationMode.HOLD_POSITION.value] and safe_route is None:
-            safe_route = planner.plan(
-                start=tuple(ekf.get_state()["position"]),
-                goal=(true_x + 30.0, 0.0, 10.0),
-                obstacles=obstacles,
-                cyber_risk_zones=[(gps_pos[0], gps_pos[1], 15.0)]
+        if policy["navigation_mode"] in [NavigationMode.DEGRADED_OPTICAL_LIDAR.value, NavigationMode.HOLD_POSITION.value] and safe_route is None:
+            planner_inst = AStarPlanner(grid_resolution=1.0)
+            for obs in obstacles:
+                planner_inst.add_obstacle(obs[0], obs[1], radius=2.0)
+            planner_inst.add_cyber_risk_zone(gps_pos[0], gps_pos[1], radius=15.0)
+            safe_route = planner_inst.plan(
+                start_pos=tuple(ekf.get_state()["position"]),
+                goal_pos=(true_x + 30.0, 0.0, 10.0)
             )
 
         est_state = ekf.get_state()
