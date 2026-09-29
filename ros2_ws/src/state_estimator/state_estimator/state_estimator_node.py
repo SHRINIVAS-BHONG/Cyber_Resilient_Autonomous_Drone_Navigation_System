@@ -11,7 +11,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
-from sensor_msgs.msg import Imu, Range
+from sensor_msgs.msg import Imu, Range, MagneticField
 from geometry_msgs.msg import PoseStamped, PointStamped
 from nav_msgs.msg import Odometry
 from drone_interfaces.msg import ResidualTelemetry
@@ -27,7 +27,7 @@ class StateEstimatorNode(Node):
         # Initialize core EKF
         self.ekf = EKF10DOF()
         self.is_initialized = False
-        self.active_sensors = {"gps", "imu", "lidar", "vision_pose"}
+        self.active_sensors = {"gps", "imu", "lidar", "vision_pose", "barometer", "magnetometer"}
 
         best_effort_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -47,6 +47,12 @@ class StateEstimatorNode(Node):
         )
         self.vision_sub = self.create_subscription(
             PoseStamped, "/normalized/vision_pose", self.vision_callback, best_effort_qos
+        )
+        self.baro_sub = self.create_subscription(
+            Range, "/normalized/barometer", self.baro_callback, best_effort_qos
+        )
+        self.mag_sub = self.create_subscription(
+            MagneticField, "/normalized/magnetometer", self.mag_callback, best_effort_qos
         )
         self.active_sensor_sub = self.create_subscription(
             String, "/resilience/active_sensors", self.active_sensors_callback, 10
@@ -144,6 +150,40 @@ class StateEstimatorNode(Node):
         res_msg.normalized_residual = [float(v) for v in res["normalized_residual"]]
         res_msg.nis = float(res["nis"])
         res_msg.threshold = 16.27
+        res_msg.anomaly_flag = bool(res["is_gated"])
+        self.residual_pub.publish(res_msg)
+
+    def baro_callback(self, msg: Range):
+        if not self.is_initialized:
+            return
+        reject = "barometer" not in self.active_sensors
+        res = self.ekf.update_baro(msg.range, reject_anomaly=reject)
+
+        res_msg = ResidualTelemetry()
+        res_msg.timestamp = msg.header.stamp
+        res_msg.sensor_name = "barometer"
+        res_msg.innovation = [float(res["innovation"][0])]
+        res_msg.normalized_residual = [float(res["normalized_residual"][0])]
+        res_msg.nis = float(res["nis"])
+        res_msg.threshold = 10.83
+        res_msg.anomaly_flag = bool(res["is_gated"])
+        self.residual_pub.publish(res_msg)
+
+    def mag_callback(self, msg: MagneticField):
+        if not self.is_initialized:
+            return
+        reject = "magnetometer" not in self.active_sensors
+        # Compute ENU yaw heading from magnetometer: psi = atan2(By, Bx)
+        yaw_meas = float(np.arctan2(msg.magnetic_field.y, msg.magnetic_field.x))
+        res = self.ekf.update_magnetometer(yaw_meas, reject_anomaly=reject)
+
+        res_msg = ResidualTelemetry()
+        res_msg.timestamp = msg.header.stamp
+        res_msg.sensor_name = "magnetometer"
+        res_msg.innovation = [float(res["innovation"][0])]
+        res_msg.normalized_residual = [float(res["normalized_residual"][0])]
+        res_msg.nis = float(res["nis"])
+        res_msg.threshold = 10.83
         res_msg.anomaly_flag = bool(res["is_gated"])
         self.residual_pub.publish(res_msg)
 

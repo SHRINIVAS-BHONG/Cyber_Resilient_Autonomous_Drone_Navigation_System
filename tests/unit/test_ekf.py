@@ -132,3 +132,37 @@ def test_ekf_joseph_form_positive_definite():
     assert np.all(eigvals > 0.0), f"Covariance matrix lost positive-definiteness: min eig={np.min(eigvals)}"
     assert np.allclose(ekf.P, ekf.P.T, atol=1e-8), "Covariance matrix is not symmetric"
 
+
+def test_ekf_adaptive_process_noise_maneuver():
+    ekf_nominal = EKF10DOF()
+    ekf_maneuver = EKF10DOF()
+
+    # Nominal level flight
+    accel_nominal = np.array([0.0, 0.0, 9.80665])
+    # Aggressive maneuvering turn (extra 4.0 m/s^2 centripetal accel)
+    accel_maneuver = np.array([4.0, 0.0, 9.80665])
+
+    for _ in range(20):
+        ekf_nominal.predict(accel=accel_nominal, gyro_z=0.0, dt=0.05)
+        ekf_maneuver.predict(accel=accel_maneuver, gyro_z=0.2, dt=0.05)
+
+    # Maneuver EKF should have higher velocity covariance due to adaptive Q-inflation
+    cov_nom_vel = float(np.trace(ekf_nominal.P[3:6, 3:6]))
+    cov_man_vel = float(np.trace(ekf_maneuver.P[3:6, 3:6]))
+    assert cov_man_vel > cov_nom_vel, "Adaptive process noise did not inflate covariance during aggressive maneuver"
+
+
+def test_ekf_dynamic_gps_covariance():
+    ekf = EKF10DOF()
+    pos = np.array([10.0, 10.0, 20.0])
+    ekf.initialize_state(position=pos)
+
+    # High uncertainty covariance (e.g. poor satellite DOP)
+    high_cov = np.eye(3) * 50.0
+    res_high = ekf.update_gps(pos + np.array([2.0, 0.0, 0.0]), cov=high_cov)
+
+    # Filter should de-weight noisy measurement and not jump by 2 meters
+    state = ekf.get_state()
+    assert state["position"][0] < 10.5
+
+

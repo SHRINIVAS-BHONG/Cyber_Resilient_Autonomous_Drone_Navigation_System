@@ -126,8 +126,19 @@ class EKF10DOF:
         ], dtype=np.float64)
         F[3:6, 9:10] = (d_Rz_dyaw @ accel_unbiased) * dt
 
+        # Adaptive Process Noise Inflation (Maneuver Detection)
+        # If linear acceleration deviates significantly from 1g (e.g. violent turns or turbulence),
+        # dynamically inflate velocity process noise to prevent filter divergence.
+        accel_norm = float(np.linalg.norm(accel_unbiased))
+        delta_accel = abs(accel_norm - 9.80665)
+        inflation = 1.0 + 0.2 * min(delta_accel, 10.0)
+
+        Q_adaptive = self.Q.copy()
+        Q_adaptive[3:6, 3:6] *= inflation
+
         # Covariance propagation
-        self.P = F @ self.P @ F.T + self.Q * dt
+        self.P = F @ self.P @ F.T + Q_adaptive * dt
+        self.P = 0.5 * (self.P + self.P.T)
 
     def _update(
         self,
@@ -169,23 +180,29 @@ class EKF10DOF:
         I_KH = np.eye(self.dim_x, dtype=np.float64) - K @ H
         self.P = I_KH @ self.P @ I_KH.T + K @ R @ K.T
 
+        # Numerical Symmetrization & Positive-Definiteness Floor Safeguard
+        self.P = 0.5 * (self.P + self.P.T)
+        np.fill_diagonal(self.P, np.maximum(np.diag(self.P), 1e-8))
+
         return y.flatten(), normalized_residual, nis, is_gated
 
     def update_gps(
         self,
         pos_meas: np.ndarray,
         vel_meas: Optional[np.ndarray] = None,
+        cov: Optional[np.ndarray] = None,
         reject_anomaly: bool = False
     ) -> Dict[str, any]:
-        """Update with GPS 3D position and optional velocity."""
+        """Update with GPS 3D position and optional velocity with optional dynamic covariance."""
         pos_meas = np.asarray(pos_meas, dtype=np.float64).reshape(3, 1)
+        R_pos = np.asarray(cov, dtype=np.float64) if cov is not None else self.R_gps_pos
 
         # Position measurement matrix H_pos (3x10)
         H_pos = np.zeros((3, self.dim_x), dtype=np.float64)
         H_pos[0:3, 0:3] = np.eye(3)
 
         innov, norm_res, nis, is_gated = self._update(
-            pos_meas, H_pos, self.R_gps_pos, self.chi2_gate_3d, reject_anomaly
+            pos_meas, H_pos, R_pos, self.chi2_gate_3d, reject_anomaly
         )
 
         vel_res = None
@@ -213,14 +230,20 @@ class EKF10DOF:
             "velocity": vel_res
         }
 
-    def update_lidar(self, altitude_meas: float, reject_anomaly: bool = False) -> Dict[str, any]:
+    def update_lidar(
+        self,
+        altitude_meas: float,
+        cov: Optional[float] = None,
+        reject_anomaly: bool = False
+    ) -> Dict[str, any]:
         """Update with 1D LiDAR altitude measurement."""
         z = np.array([[altitude_meas]], dtype=np.float64)
         H = np.zeros((1, self.dim_x), dtype=np.float64)
         H[0, 2] = 1.0  # Measures pz
+        R = np.array([[cov]], dtype=np.float64) if cov is not None else self.R_lidar_z
 
         innov, norm_res, nis, is_gated = self._update(
-            z, H, self.R_lidar_z, self.chi2_gate_1d, reject_anomaly
+            z, H, R, self.chi2_gate_1d, reject_anomaly
         )
 
         return {
@@ -230,14 +253,20 @@ class EKF10DOF:
             "is_gated": is_gated
         }
 
-    def update_vision_pose(self, pos_meas: np.ndarray, reject_anomaly: bool = False) -> Dict[str, any]:
+    def update_vision_pose(
+        self,
+        pos_meas: np.ndarray,
+        cov: Optional[np.ndarray] = None,
+        reject_anomaly: bool = False
+    ) -> Dict[str, any]:
         """Update with Visual Odometry / Camera position."""
         pos_meas = np.asarray(pos_meas, dtype=np.float64).reshape(3, 1)
         H = np.zeros((3, self.dim_x), dtype=np.float64)
         H[0:3, 0:3] = np.eye(3)
+        R = np.asarray(cov, dtype=np.float64) if cov is not None else self.R_vision_pos
 
         innov, norm_res, nis, is_gated = self._update(
-            pos_meas, H, self.R_vision_pos, self.chi2_gate_3d, reject_anomaly
+            pos_meas, H, R, self.chi2_gate_3d, reject_anomaly
         )
 
         return {
@@ -247,14 +276,20 @@ class EKF10DOF:
             "is_gated": is_gated
         }
 
-    def update_baro(self, altitude_meas: float, reject_anomaly: bool = False) -> Dict[str, any]:
+    def update_baro(
+        self,
+        altitude_meas: float,
+        cov: Optional[float] = None,
+        reject_anomaly: bool = False
+    ) -> Dict[str, any]:
         """Update with Barometric Altimeter measurement (altitude in meters)."""
         z = np.array([[altitude_meas]], dtype=np.float64)
         H = np.zeros((1, self.dim_x), dtype=np.float64)
         H[0, 2] = 1.0  # Measures pz
+        R = np.array([[cov]], dtype=np.float64) if cov is not None else self.R_baro_z
 
         innov, norm_res, nis, is_gated = self._update(
-            z, H, self.R_baro_z, self.chi2_gate_1d, reject_anomaly
+            z, H, R, self.chi2_gate_1d, reject_anomaly
         )
 
         return {
@@ -264,7 +299,12 @@ class EKF10DOF:
             "is_gated": is_gated
         }
 
-    def update_magnetometer(self, yaw_meas: float, reject_anomaly: bool = False) -> Dict[str, any]:
+    def update_magnetometer(
+        self,
+        yaw_meas: float,
+        cov: Optional[float] = None,
+        reject_anomaly: bool = False
+    ) -> Dict[str, any]:
         """Update with Magnetometer heading (yaw in radians)."""
         # Wrap measurement and current estimate to [-pi, pi]
         yaw_meas = (yaw_meas + np.pi) % (2.0 * np.pi) - np.pi
@@ -272,12 +312,14 @@ class EKF10DOF:
         H = np.zeros((1, self.dim_x), dtype=np.float64)
         H[0, 9] = 1.0  # Measures yaw (index 9)
 
+        R = np.array([[cov]], dtype=np.float64) if cov is not None else self.R_mag_yaw
+
         # Custom innovation wrap to prevent 2*pi discontinuity
         y_raw = yaw_meas - self.x[9, 0]
         y_wrapped = (y_raw + np.pi) % (2.0 * np.pi) - np.pi
 
         # Innovation covariance S
-        S = H @ self.P @ H.T + self.R_mag_yaw
+        S = H @ self.P @ H.T + R
         S_inv = np.linalg.pinv(S)
         nis = float((np.array([[y_wrapped]]) @ S_inv @ np.array([[y_wrapped]])).item())
         is_gated = nis > self.chi2_gate_1d
@@ -298,7 +340,9 @@ class EKF10DOF:
         self.x[9, 0] = (self.x[9, 0] + np.pi) % (2.0 * np.pi) - np.pi
 
         I_KH = np.eye(self.dim_x, dtype=np.float64) - K @ H
-        self.P = I_KH @ self.P @ I_KH.T + K @ self.R_mag_yaw @ K.T
+        self.P = I_KH @ self.P @ I_KH.T + K @ R @ K.T
+        self.P = 0.5 * (self.P + self.P.T)
+        np.fill_diagonal(self.P, np.maximum(np.diag(self.P), 1e-8))
 
         return {
             "innovation": np.array([y_wrapped]),

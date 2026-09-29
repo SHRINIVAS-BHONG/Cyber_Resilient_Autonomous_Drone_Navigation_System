@@ -32,6 +32,21 @@ class SensorBridgeNode(Node):
         self.declare_parameter("origin_alt", 0.0)
         self.declare_parameter("auto_origin", True)
 
+        # Magnetometer hard/soft iron calibration parameters
+        self.declare_parameter("mag_hard_iron_x", 0.0)
+        self.declare_parameter("mag_hard_iron_y", 0.0)
+        self.declare_parameter("mag_hard_iron_z", 0.0)
+        self.hard_iron = np.array([
+            float(self.get_parameter("mag_hard_iron_x").value),
+            float(self.get_parameter("mag_hard_iron_y").value),
+            float(self.get_parameter("mag_hard_iron_z").value)
+        ], dtype=np.float64)
+        self.soft_iron = np.eye(3, dtype=np.float64)
+
+        # Barometer QNH sea-level baseline pressure (default 101325.0 Pa)
+        self.declare_parameter("baro_qnh_pressure", 101325.0)
+        self.qnh_p0 = float(self.get_parameter("baro_qnh_pressure").value)
+
         param_lat = self.get_parameter("origin_lat").value
         param_lon = self.get_parameter("origin_lon").value
         param_alt = self.get_parameter("origin_alt").value
@@ -174,14 +189,14 @@ class SensorBridgeNode(Node):
     def baro_callback(self, msg: FluidPressure):
         """
         Convert raw static atmospheric pressure (Pascals) to Barometric Altitude (meters)
-        using the standard international hypsometric formula:
-        h = 44330.0 * (1.0 - (P / P0) ** 0.190295), where P0 = 101325.0 Pa (Standard sea level).
+        using the standard international hypsometric formula with QNH reference pressure:
+        h = 44330.0 * (1.0 - (P / P0) ** 0.190295), where P0 is calibrated QNH baseline pressure.
         """
         p = msg.fluid_pressure
         if p <= 0.0 or math.isnan(p):
             return
 
-        p0 = 101325.0
+        p0 = self.qnh_p0 if self.qnh_p0 > 0.0 else 101325.0
         alt_m = 44330.0 * (1.0 - (p / p0) ** 0.190295)
 
         norm_baro = Range()
@@ -195,16 +210,25 @@ class SensorBridgeNode(Node):
 
     def mag_callback(self, msg: MagneticField):
         """
-        Normalize 3-axis magnetometer measurements in micro-Teslas.
-        Normalizes frame from NED body frame to ENU.
+        Normalize 3-axis magnetometer measurements in micro-Teslas with hard/soft-iron calibration.
+        B_calib = S_soft @ (B_raw - b_hard), then normalize body frame from NED to ENU.
         """
+        raw_b = np.array([
+            msg.magnetic_field.x,
+            msg.magnetic_field.y,
+            msg.magnetic_field.z
+        ], dtype=np.float64)
+
+        # Apply hard/soft iron calibration
+        calib_b = self.soft_iron @ (raw_b - self.hard_iron)
+
         norm_mag = MagneticField()
         norm_mag.header = msg.header
         norm_mag.header.frame_id = "base_link_enu"
         # NED to ENU: x_enu = y_ned, y_enu = x_ned, z_enu = -z_ned
-        norm_mag.magnetic_field.x = msg.magnetic_field.y
-        norm_mag.magnetic_field.y = msg.magnetic_field.x
-        norm_mag.magnetic_field.z = -msg.magnetic_field.z
+        norm_mag.magnetic_field.x = float(calib_b[1])
+        norm_mag.magnetic_field.y = float(calib_b[0])
+        norm_mag.magnetic_field.z = -float(calib_b[2])
         norm_mag.magnetic_field_covariance = msg.magnetic_field_covariance
 
         self.norm_mag_pub.publish(norm_mag)
