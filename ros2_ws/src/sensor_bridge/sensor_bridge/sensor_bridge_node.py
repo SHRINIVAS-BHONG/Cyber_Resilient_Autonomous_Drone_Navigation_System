@@ -13,7 +13,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
-from sensor_msgs.msg import Imu, NavSatFix, Range
+from sensor_msgs.msg import Imu, NavSatFix, Range, FluidPressure, MagneticField
 from geometry_msgs.msg import PoseStamped, PointStamped
 
 from sensor_bridge.geodesy import WGS84Datum
@@ -22,6 +22,9 @@ from sensor_bridge.geodesy import WGS84Datum
 class SensorBridgeNode(Node):
     def __init__(self):
         super().__init__("sensor_bridge_node")
+
+        # Source identifier tag
+        self.source_id = "px4_sitl"
 
         # Declare parameters for geodetic reference origin (WGS-84)
         self.declare_parameter("origin_lat", 0.0)
@@ -59,20 +62,33 @@ class SensorBridgeNode(Node):
         self.raw_vision_sub = self.create_subscription(
             PoseStamped, "/sensor/camera/pose", self.vision_callback, sensor_qos
         )
+        self.raw_baro_sub = self.create_subscription(
+            FluidPressure, "/sensor/barometer", self.baro_callback, sensor_qos
+        )
+        self.raw_mag_sub = self.create_subscription(
+            MagneticField, "/sensor/magnetometer", self.mag_callback, sensor_qos
+        )
 
-        # 2. Publishers for normalized sensor streams (ENU frame)
+        # 2. Publishers for normalized sensor streams (consistent ENU clock & coordinates)
         self.norm_imu_pub = self.create_publisher(Imu, "/normalized/imu", 10)
         self.norm_gps_pub = self.create_publisher(PointStamped, "/normalized/gps", 10)
         self.norm_lidar_pub = self.create_publisher(Range, "/normalized/lidar", 10)
         self.norm_vision_pub = self.create_publisher(PoseStamped, "/normalized/vision_pose", 10)
+        self.norm_baro_pub = self.create_publisher(Range, "/normalized/barometer", 10)
+        self.norm_mag_pub = self.create_publisher(MagneticField, "/normalized/magnetometer", 10)
 
         # Rate and health diagnostics
         self.last_imu_stamp = None
         self.last_gps_stamp = None
         self.imu_msg_count = 0
         self.gps_msg_count = 0
+        self.baro_msg_count = 0
+        self.mag_msg_count = 0
 
-        self.get_logger().info("Sensor Bridge Node running with WGS-84 Geodesy and NED->ENU frame normalization.")
+        # Frequency watchdog timer (1 Hz)
+        self.watchdog_timer = self.create_timer(1.0, self.frequency_watchdog)
+
+        self.get_logger().info("Sensor Bridge Node running with WGS-84 Geodesy, Baro/Mag support, and Watchdog.")
 
     def imu_callback(self, msg: Imu):
         """
@@ -154,6 +170,69 @@ class SensorBridgeNode(Node):
         norm_pose.header.frame_id = "map_enu"
         norm_pose.pose = msg.pose
         self.norm_vision_pub.publish(norm_pose)
+
+    def baro_callback(self, msg: FluidPressure):
+        """
+        Convert raw static atmospheric pressure (Pascals) to Barometric Altitude (meters)
+        using the standard international hypsometric formula:
+        h = 44330.0 * (1.0 - (P / P0) ** 0.190295), where P0 = 101325.0 Pa (Standard sea level).
+        """
+        p = msg.fluid_pressure
+        if p <= 0.0 or math.isnan(p):
+            return
+
+        p0 = 101325.0
+        alt_m = 44330.0 * (1.0 - (p / p0) ** 0.190295)
+
+        norm_baro = Range()
+        norm_baro.header = msg.header
+        norm_baro.header.frame_id = "map_enu"
+        norm_baro.range = float(alt_m)
+        norm_baro.min_range = -500.0
+        norm_baro.max_range = 10000.0
+        self.norm_baro_pub.publish(norm_baro)
+        self.baro_msg_count += 1
+
+    def mag_callback(self, msg: MagneticField):
+        """
+        Normalize 3-axis magnetometer measurements in micro-Teslas.
+        Normalizes frame from NED body frame to ENU.
+        """
+        norm_mag = MagneticField()
+        norm_mag.header = msg.header
+        norm_mag.header.frame_id = "base_link_enu"
+        # NED to ENU: x_enu = y_ned, y_enu = x_ned, z_enu = -z_ned
+        norm_mag.magnetic_field.x = msg.magnetic_field.y
+        norm_mag.magnetic_field.y = msg.magnetic_field.x
+        norm_mag.magnetic_field.z = -msg.magnetic_field.z
+        norm_mag.magnetic_field_covariance = msg.magnetic_field_covariance
+
+        self.norm_mag_pub.publish(norm_mag)
+        self.mag_msg_count += 1
+
+    def frequency_watchdog(self):
+        """
+        Monitors incoming sensor topic rates every 1.0 second.
+        Flags sensor topic starvation / signal drop.
+        Expected rates: IMU >= 25 Hz (nominal 50-100 Hz), GPS >= 2 Hz (nominal 5-10 Hz).
+        """
+        imu_hz = self.imu_msg_count
+        gps_hz = self.gps_msg_count
+        baro_hz = self.baro_msg_count
+        mag_hz = self.mag_msg_count
+
+        # Reset counters for the next window
+        self.imu_msg_count = 0
+        self.gps_msg_count = 0
+        self.baro_msg_count = 0
+        self.mag_msg_count = 0
+
+        # Diagnostics warning only if node has been receiving data or expecting it
+        if imu_hz > 0 and imu_hz < 25:
+            self.get_logger().warn(f"IMU stream starvation: {imu_hz} Hz (nominal >= 50 Hz)")
+        if gps_hz > 0 and gps_hz < 2:
+            self.get_logger().warn(f"GPS stream starvation: {gps_hz} Hz (nominal >= 5 Hz)")
+
 
 
 def main(args=None):

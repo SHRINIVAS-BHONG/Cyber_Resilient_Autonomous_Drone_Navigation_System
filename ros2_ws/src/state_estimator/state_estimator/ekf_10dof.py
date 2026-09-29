@@ -24,6 +24,7 @@ class EKF10DOF:
         r_lidar_z: float = 0.0009,
         r_vision_pos: float = 0.0025,
         r_baro_z: float = 0.04,
+        r_mag_yaw: float = 0.01,
         chi2_gate_3d: float = 16.27,  # 99.9% confidence threshold for 3-DOF
         chi2_gate_1d: float = 10.83,  # 99.9% confidence threshold for 1-DOF
     ):
@@ -52,6 +53,7 @@ class EKF10DOF:
         self.R_lidar_z = np.array([[r_lidar_z]], dtype=np.float64)
         self.R_vision_pos = np.eye(3, dtype=np.float64) * r_vision_pos
         self.R_baro_z = np.array([[r_baro_z]], dtype=np.float64)
+        self.R_mag_yaw = np.array([[r_mag_yaw]], dtype=np.float64)
 
         # Chi-square gating thresholds
         self.chi2_gate_3d = chi2_gate_3d
@@ -240,6 +242,66 @@ class EKF10DOF:
 
         return {
             "innovation": innov,
+            "normalized_residual": norm_res,
+            "nis": nis,
+            "is_gated": is_gated
+        }
+
+    def update_baro(self, altitude_meas: float, reject_anomaly: bool = False) -> Dict[str, any]:
+        """Update with Barometric Altimeter measurement (altitude in meters)."""
+        z = np.array([[altitude_meas]], dtype=np.float64)
+        H = np.zeros((1, self.dim_x), dtype=np.float64)
+        H[0, 2] = 1.0  # Measures pz
+
+        innov, norm_res, nis, is_gated = self._update(
+            z, H, self.R_baro_z, self.chi2_gate_1d, reject_anomaly
+        )
+
+        return {
+            "innovation": innov,
+            "normalized_residual": norm_res,
+            "nis": nis,
+            "is_gated": is_gated
+        }
+
+    def update_magnetometer(self, yaw_meas: float, reject_anomaly: bool = False) -> Dict[str, any]:
+        """Update with Magnetometer heading (yaw in radians)."""
+        # Wrap measurement and current estimate to [-pi, pi]
+        yaw_meas = (yaw_meas + np.pi) % (2.0 * np.pi) - np.pi
+        z = np.array([[yaw_meas]], dtype=np.float64)
+        H = np.zeros((1, self.dim_x), dtype=np.float64)
+        H[0, 9] = 1.0  # Measures yaw (index 9)
+
+        # Custom innovation wrap to prevent 2*pi discontinuity
+        y_raw = yaw_meas - self.x[9, 0]
+        y_wrapped = (y_raw + np.pi) % (2.0 * np.pi) - np.pi
+
+        # Innovation covariance S
+        S = H @ self.P @ H.T + self.R_mag_yaw
+        S_inv = np.linalg.pinv(S)
+        nis = float((np.array([[y_wrapped]]) @ S_inv @ np.array([[y_wrapped]])).item())
+        is_gated = nis > self.chi2_gate_1d
+
+        diag_S = max(float(S[0, 0]), 1e-12)
+        norm_res = np.array([y_wrapped / np.sqrt(diag_S)])
+
+        if reject_anomaly and is_gated:
+            return {
+                "innovation": np.array([y_wrapped]),
+                "normalized_residual": norm_res,
+                "nis": nis,
+                "is_gated": True
+            }
+
+        K = self.P @ H.T @ S_inv
+        self.x += K * y_wrapped
+        self.x[9, 0] = (self.x[9, 0] + np.pi) % (2.0 * np.pi) - np.pi
+
+        I_KH = np.eye(self.dim_x, dtype=np.float64) - K @ H
+        self.P = I_KH @ self.P @ I_KH.T + K @ self.R_mag_yaw @ K.T
+
+        return {
+            "innovation": np.array([y_wrapped]),
             "normalized_residual": norm_res,
             "nis": nis,
             "is_gated": is_gated

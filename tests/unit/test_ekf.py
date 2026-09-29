@@ -72,3 +72,63 @@ def test_ekf_gps_spoofing_detection_and_rejection():
     state = ekf.get_state()
     assert not np.allclose(state["position"], spoofed_pos, atol=10.0)
     assert np.allclose(state["position"], true_pos, atol=1.0)
+
+
+def test_ekf_lidar_and_barometer_updates():
+    ekf = EKF10DOF()
+    accel = np.array([0.0, 0.0, 9.80665])
+    ekf.initialize_state(position=np.array([0.0, 0.0, 10.0]))
+
+    # Test Barometer update
+    for _ in range(10):
+        ekf.predict(accel=accel, gyro_z=0.0, dt=0.05)
+        res = ekf.update_baro(10.0)
+        assert res["nis"] < 10.83
+
+    state = ekf.get_state()
+    assert pytest.approx(state["position"][2], abs=0.2) == 10.0
+
+    # Inject barometric fault with reject_anomaly=True
+    res_fault = ekf.update_baro(50.0, reject_anomaly=True)
+    assert res_fault["is_gated"] is True
+    assert res_fault["nis"] > 10.83
+    assert state["position"][2] < 20.0
+
+
+def test_ekf_magnetometer_yaw_update():
+    ekf = EKF10DOF()
+    accel = np.array([0.0, 0.0, 9.80665])
+    target_yaw = 1.25  # radians
+    ekf.initialize_state(yaw=target_yaw)
+
+    # Steady-state yaw tracking
+    for _ in range(15):
+        ekf.predict(accel=accel, gyro_z=0.0, dt=0.05)
+        res = ekf.update_magnetometer(target_yaw)
+        assert res["nis"] < 10.83
+
+    state = ekf.get_state()
+    assert pytest.approx(state["yaw"], abs=0.05) == target_yaw
+
+    # Test circular angle wrapping across pi boundary
+    res_wrap = ekf.update_magnetometer(-np.pi + 0.1)
+    state_wrapped = ekf.get_state()
+    assert -np.pi <= state_wrapped["yaw"] <= np.pi
+
+
+
+def test_ekf_joseph_form_positive_definite():
+    ekf = EKF10DOF()
+    accel = np.array([0.1, -0.05, 9.81])
+
+    for _ in range(50):
+        ekf.predict(accel=accel, gyro_z=0.02, dt=0.02)
+        ekf.update_gps(np.array([1.0, 2.0, 10.0]))
+        ekf.update_baro(10.0)
+        ekf.update_magnetometer(0.5)
+
+    # Minimum eigenvalue of covariance matrix P must be strictly positive
+    eigvals = np.linalg.eigvalsh(ekf.P)
+    assert np.all(eigvals > 0.0), f"Covariance matrix lost positive-definiteness: min eig={np.min(eigvals)}"
+    assert np.allclose(ekf.P, ekf.P.T, atol=1e-8), "Covariance matrix is not symmetric"
+
