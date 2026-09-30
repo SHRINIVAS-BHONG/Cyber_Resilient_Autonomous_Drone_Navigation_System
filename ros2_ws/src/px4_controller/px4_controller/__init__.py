@@ -1,1 +1,1 @@
-# PX4 Offboard Controller Package
+"""PX4 controller ROS 2 package."""

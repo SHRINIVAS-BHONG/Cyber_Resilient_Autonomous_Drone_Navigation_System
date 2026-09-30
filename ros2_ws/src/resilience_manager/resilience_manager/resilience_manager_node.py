@@ -1,78 +1,60 @@
-"""
-ROS 2 Resilience Manager Node.
-
-Autonomous decision engine managing dynamic sensor isolation, continuous trust scores,
-and vehicle safety mode transitions during cyber attacks.
-"""
-
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String, Float32
+from std_msgs.msg import String
 from drone_interfaces.msg import AttackStatus, SensorTrust
-from resilience_manager.manager_engine import ResilienceManagerEngine
 
 
 class ResilienceManagerNode(Node):
     def __init__(self):
-        super().__init__("resilience_manager_node")
+        super().__init__('resilience_manager_node')
 
-        # Initialize resilience engine
-        self.engine = ResilienceManagerEngine(
-            quarantine_threshold=0.35,
-            recovery_threshold=0.85,
-            penalty_per_anomaly=0.25,
-            reward_per_normal=0.05
-        )
+        self.mode_pub = self.create_publisher(String, '/resilience/navigation_mode', 10)
+        self.trust_pub = self.create_publisher(SensorTrust, '/resilience/sensor_trust', 10)
+        self.gate_pub = self.create_publisher(String, '/resilience/sensor_gate', 10)
 
-        # 1. Subscriber to Attack Status from Detector
-        self.attack_sub = self.create_subscription(
-            AttackStatus, "/resilience/attack_status", self.attack_callback, 10
-        )
+        self.create_subscription(AttackStatus, '/resilience/attack_status', self.attack_status_cb, 10)
 
-        # 2. Publishers for State Estimator, Planner, and PX4 Controller
-        self.active_sensors_pub = self.create_publisher(String, "/resilience/active_sensors", 10)
-        self.nav_mode_pub = self.create_publisher(String, "/resilience/navigation_mode", 10)
-        self.trust_pub = self.create_publisher(SensorTrust, "/resilience/sensor_trust", 10)
+        self.state = 'NORMAL'
+        self.gps_isolated = False
+        self.active_estimator = 'main'
+        self.replan_pub = self.create_publisher(String, '/planner/trigger_replan', 10)
 
-        # 10 Hz periodic publish timer
-        self.timer = self.create_timer(0.1, self.periodic_publish)
-        self.current_policy = self.engine.evaluate_resilience_policy("NORMAL", [])
+        self.create_timer(0.2, self.status_loop) # 5 Hz
+        self.get_logger().info("Resilience Manager Node running.")
 
-        self.get_logger().info("Resilience Manager Node initialized.")
+    def attack_status_cb(self, msg: AttackStatus):
+        if msg.detected and not self.gps_isolated:
+            self.state = 'CONTAINMENT'
+            self.gps_isolated = True
+            self.active_estimator = 'trusted'
 
-    def attack_callback(self, msg: AttackStatus):
-        attack_state = "ATTACK_CONFIRMED" if msg.detected else "NORMAL"
-        self.current_policy = self.engine.evaluate_resilience_policy(
-            attack_status=attack_state,
-            detected_compromised_sensors=msg.compromised_sensors
-        )
+            # 1. Gate out GPS
+            gate_cmd = String()
+            gate_cmd.data = 'gps:disable'
+            self.gate_pub.publish(gate_cmd)
 
-        if self.current_policy["is_degraded"]:
-            self.get_logger().warn(
-                f"Resilience Action Engaged: Mode={self.current_policy['navigation_mode']}, "
-                f"Active Sensors={self.current_policy['active_sensors']}, "
-                f"Isolated={self.current_policy['isolated_sensors']}"
-            )
+            # 2. Update navigation mode
+            mode_cmd = String()
+            mode_cmd.data = 'safe_local_navigation'
+            self.mode_pub.publish(mode_cmd)
 
-    def periodic_publish(self):
-        # 1. Active sensors string (comma-separated)
-        active_str = ",".join(self.current_policy["active_sensors"])
-        msg_active = String()
-        msg_active.data = active_str
-        self.active_sensors_pub.publish(msg_active)
+            # 3. Trigger planner replan
+            replan_msg = String()
+            replan_msg.data = 'replan:trusted'
+            self.replan_pub.publish(replan_msg)
 
-        # 2. Navigation Mode
-        msg_mode = String()
-        msg_mode.data = self.current_policy["navigation_mode"]
-        self.nav_mode_pub.publish(msg_mode)
+            self.get_logger().warn("ATTACK CONFIRMED: GPS isolated, active estimator switched to TRUSTED filter.")
 
-        # 3. Publish individual sensor trust metrics
-        for sensor_name, trust_val in self.current_policy["trust_scores"].items():
-            trust_msg = SensorTrust()
-            trust_msg.sensor_name = sensor_name
-            trust_msg.trusted = sensor_name in self.current_policy["active_sensors"]
-            trust_msg.trust_score = float(trust_val)
-            self.trust_pub.publish(trust_msg)
+    def status_loop(self):
+        trust_msg = SensorTrust()
+        trust_msg.sensor_name = 'gps'
+        trust_msg.trusted = not self.gps_isolated
+        trust_msg.trust_score = 0.0 if self.gps_isolated else 1.0
+        self.trust_pub.publish(trust_msg)
+
+        mode_msg = String()
+        mode_msg.data = f"state:{self.state}|estimator:{self.active_estimator}"
+        self.mode_pub.publish(mode_msg)
 
 
 def main(args=None):
@@ -87,5 +69,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

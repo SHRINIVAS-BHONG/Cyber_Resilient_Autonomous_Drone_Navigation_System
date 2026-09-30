@@ -1,68 +1,81 @@
+import numpy as np
+import pytest
 import sys
 from pathlib import Path
-import pytest
 
-# Add resilience_manager package to path
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "ros2_ws" / "src" / "resilience_manager"))
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from resilience_manager.manager_engine import ResilienceManagerEngine, NavigationMode
-
-
-def test_resilience_initial_state():
-    engine = ResilienceManagerEngine()
-    policy = engine.evaluate_resilience_policy(attack_status="NORMAL", detected_compromised_sensors=[])
-    assert policy["navigation_mode"] == NavigationMode.NORMAL_MISSION.value
-    assert policy["speed_factor"] == 1.0
-    assert len(policy["isolated_sensors"]) == 0
-    assert "gps" in policy["active_sensors"]
+from cyber_drone.resilience_manager import ResilienceManager
+from cyber_drone.ekf import DroneEKF
 
 
-def test_resilience_gps_spoofing_isolation_and_fallback():
-    engine = ResilienceManagerEngine()
+def test_resilience_state_machine_and_isolation():
+    manager = ResilienceManager()
+    main_ekf = DroneEKF(is_trusted=False)
+    trusted_ekf = DroneEKF(is_trusted=True)
 
-    # Repeated GPS anomaly triggers quarantine
-    for _ in range(3):
-        policy = engine.evaluate_resilience_policy(
-            attack_status="ATTACK_CONFIRMED",
-            detected_compromised_sensors=["gps"]
-        )
+    assert manager.state == "NORMAL"
+    assert manager.active_estimator == "main"
 
-    # GPS must be isolated and mode must be DEGRADED_OPTICAL_LIDAR
-    assert "gps" in policy["isolated_sensors"]
-    assert "gps" not in policy["active_sensors"]
-    assert policy["navigation_mode"] == NavigationMode.DEGRADED_OPTICAL_LIDAR.value
-    assert policy["speed_factor"] == 0.6
-    assert "vision_pose" in policy["active_sensors"]
-    assert "lidar" in policy["active_sensors"]
+    # 1. Suspicious trigger
+    detection_suspicious = {
+        "status": "SUSPICIOUS",
+        "compromised_sensors": ["gps"],
+        "risk_score": 0.5,
+        "attack_type": "gps_drift"
+    }
+    res = manager.update(10.0, detection_suspicious, main_ekf, trusted_ekf)
+    assert manager.state == "SUSPICIOUS"
+    assert manager.sensor_trust["gps"] < 1.0
 
-
-def test_resilience_multi_sensor_compromise_emergency_landing():
-    engine = ResilienceManagerEngine()
-
-    # Compromise both GPS and IMU
-    for _ in range(4):
-        policy = engine.evaluate_resilience_policy(
-            attack_status="ATTACK_CONFIRMED",
-            detected_compromised_sensors=["gps", "imu"]
-        )
-
-    assert policy["navigation_mode"] == NavigationMode.EMERGENCY_LANDING.value
-    assert policy["speed_factor"] == 0.2
+    # 2. Confirmed Attack trigger -> Containment -> Safe Navigation
+    detection_attack = {
+        "status": "ATTACK_CONFIRMED",
+        "compromised_sensors": ["gps"],
+        "risk_score": 0.9,
+        "attack_type": "gps_drift"
+    }
+    res = manager.update(10.5, detection_attack, main_ekf, trusted_ekf)
+    assert manager.state == "SAFE_NAVIGATION"
+    assert "gps" in manager.isolated_sensors
+    assert manager.active_estimator == "trusted"
+    assert not main_ekf.enabled_sensors["gps"]
 
 
-def test_resilience_sensor_recovery_hysteresis():
-    engine = ResilienceManagerEngine()
+def test_resilience_gradual_reintegration():
+    manager = ResilienceManager()
+    main_ekf = DroneEKF(is_trusted=False)
+    trusted_ekf = DroneEKF(is_trusted=True)
 
-    # 1. Drive GPS into isolation
-    for _ in range(3):
-        engine.evaluate_resilience_policy("ATTACK_CONFIRMED", ["gps"])
-    assert "gps" in engine.isolated_sensors
+    # Force into containment with isolated GPS
+    manager.state = "SAFE_NAVIGATION"
+    manager.isolated_sensors.add("gps")
+    manager.gps_covariance_inflation = 10.0
+    manager.sensor_trust["gps"] = 0.0
+    manager.active_estimator = "trusted"
 
-    # 2. Feed healthy updates gradually
-    for _ in range(20):
-        engine.update_sensor_health("gps", is_anomaly=False)
+    # Attack ceases, environment is clean
+    detection_clean = {
+        "status": "NORMAL",
+        "compromised_sensors": [],
+        "risk_score": 0.0,
+        "attack_type": "none"
+    }
 
-    policy = engine.evaluate_resilience_policy("NORMAL", [])
-    # Should recover above 0.85 and be reinstated
-    assert "gps" not in policy["isolated_sensors"]
-    assert policy["navigation_mode"] == NavigationMode.NORMAL_MISSION.value
+    # Step 1: Enters RECOVERY
+    manager.update(50.0, detection_clean, main_ekf, trusted_ekf)
+    assert manager.state == "RECOVERY"
+
+    # 5.0 seconds dwell agreement requirement (t=50 to t=55.1)
+    manager.update(55.1, detection_clean, main_ekf, trusted_ekf)
+    # Step into ramp (t=56.0): ramp_elapsed > 0, covariance drops, trust rises
+    manager.update(56.0, detection_clean, main_ekf, trusted_ekf)
+    assert manager.gps_covariance_inflation < 10.0
+
+    # 3.0 seconds ramp duration (t=55.1 to t=58.2)
+    manager.update(58.5, detection_clean, main_ekf, trusted_ekf)
+    # Once ramp completes, GPS is restored and system returns to normal
+    assert "gps" not in manager.isolated_sensors
+    assert manager.sensor_trust["gps"] >= 0.99
+    assert manager.state == "RECOVERED"

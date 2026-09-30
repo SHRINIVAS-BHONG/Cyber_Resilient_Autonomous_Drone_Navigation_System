@@ -1,168 +1,61 @@
-import sys
-from pathlib import Path
 import numpy as np
 import pytest
+import sys
+from pathlib import Path
 
-# Add state_estimator package to path for unit testing
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "ros2_ws" / "src" / "state_estimator"))
+# Add src to pythonpath
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from state_estimator.ekf_10dof import EKF10DOF
+from cyber_drone.ekf import DroneEKF
 
 
 def test_ekf_initialization():
-    ekf = EKF10DOF()
-    state = ekf.get_state()
-    assert state["position"].shape == (3,)
-    assert state["velocity"].shape == (3,)
-    assert state["yaw"] == 0.0
-    assert np.all(state["position_std"] > 0.0)
+    ekf = DroneEKF(is_trusted=False)
+    assert ekf.x.shape == (10,)
+    assert ekf.P.shape == (10, 10)
+    assert ekf.enabled_sensors["gps"] is True
+
+    trusted_ekf = DroneEKF(is_trusted=True)
+    assert trusted_ekf.enabled_sensors["gps"] is False
 
 
-def test_ekf_prediction_stationary():
-    ekf = EKF10DOF()
-    # In stationary flight, accelerometer balances gravity (upward 9.80665 m/s^2)
-    accel = np.array([0.0, 0.0, 9.80665])
-    dt = 0.02
-    for _ in range(50):
-        ekf.predict(accel=accel, gyro_z=0.0, dt=dt)
+def test_ekf_prediction():
+    ekf = DroneEKF()
+    ekf.reset(np.array([0.0, 0.0, 10.0]), 0.0)
 
-    state = ekf.get_state()
-    # Position and velocity should remain near zero
-    assert np.allclose(state["position"], [0.0, 0.0, 0.0], atol=1e-3)
-    assert np.allclose(state["velocity"], [0.0, 0.0, 0.0], atol=1e-3)
-
-
-def test_ekf_gps_convergence():
-    ekf = EKF10DOF()
-    accel = np.array([0.0, 0.0, 9.80665])
-    true_pos = np.array([10.0, 5.0, 15.0])
-    ekf.initialize_state(position=true_pos)
-
+    # Hover acceleration in body frame: [0, 0, 9.81]
+    accel_body = np.array([0.0, 0.0, 9.81])
+    gyro_z = 0.0
     dt = 0.1
-    for _ in range(30):
-        ekf.predict(accel=accel, gyro_z=0.0, dt=dt)
-        # Add normal small GPS noise
-        noise = np.random.normal(0.0, 0.1, size=(3,))
-        res = ekf.update_gps(true_pos + noise)
-        assert res["position"]["nis"] < 16.27  # Chi2 gate check in steady state
 
-    state = ekf.get_state()
-    assert np.allclose(state["position"], true_pos, atol=0.5)
+    ekf.predict(dt, accel_body, gyro_z)
+
+    # Position and velocity should remain roughly unchanged during balanced hover
+    assert np.allclose(ekf.position, [0.0, 0.0, 10.0], atol=0.05)
+    assert np.allclose(ekf.velocity, [0.0, 0.0, 0.0], atol=0.05)
 
 
-def test_ekf_gps_spoofing_detection_and_rejection():
-    ekf = EKF10DOF()
-    accel = np.array([0.0, 0.0, 9.80665])
-    true_pos = np.array([10.0, 5.0, 15.0])
+def test_ekf_gps_update_and_nis():
+    ekf = DroneEKF()
+    ekf.reset(np.array([10.0, 10.0, 10.0]))
 
-    # 1. Converge on true position
-    for _ in range(25):
-        ekf.predict(accel=accel, gyro_z=0.0, dt=0.1)
-        ekf.update_gps(true_pos)
+    gps_meas = np.array([10.2, 9.9, 10.1])
+    diag = ekf.update_gps(gps_meas)
 
-    # 2. Inject large spoofing jump (35m offset)
-    spoofed_pos = true_pos + np.array([35.0, -25.0, 0.0])
-    res = ekf.update_gps(spoofed_pos, reject_anomaly=True)
-
-    # Should detect anomaly and trigger gating
-    assert res["position"]["is_gated"] is True
-    assert res["position"]["nis"] > 16.27
-
-    # Since reject_anomaly is True, state should NOT jump to the spoofed location
-    state = ekf.get_state()
-    assert not np.allclose(state["position"], spoofed_pos, atol=10.0)
-    assert np.allclose(state["position"], true_pos, atol=1.0)
+    assert diag is not None
+    assert "NIS" in diag
+    assert "residual" in diag
+    assert diag["NIS"] >= 0.0
+    # State should move towards measurement
+    assert np.allclose(ekf.position, gps_meas, atol=0.3)
 
 
-def test_ekf_lidar_and_barometer_updates():
-    ekf = EKF10DOF()
-    accel = np.array([0.0, 0.0, 9.80665])
-    ekf.initialize_state(position=np.array([0.0, 0.0, 10.0]))
+def test_trusted_ekf_rejects_gps():
+    trusted_ekf = DroneEKF(is_trusted=True)
+    trusted_ekf.reset(np.array([0.0, 0.0, 10.0]))
 
-    # Test Barometer update
-    for _ in range(10):
-        ekf.predict(accel=accel, gyro_z=0.0, dt=0.05)
-        res = ekf.update_baro(10.0)
-        assert res["nis"] < 10.83
-
-    state = ekf.get_state()
-    assert pytest.approx(state["position"][2], abs=0.2) == 10.0
-
-    # Inject barometric fault with reject_anomaly=True
-    res_fault = ekf.update_baro(50.0, reject_anomaly=True)
-    assert res_fault["is_gated"] is True
-    assert res_fault["nis"] > 10.83
-    assert state["position"][2] < 20.0
-
-
-def test_ekf_magnetometer_yaw_update():
-    ekf = EKF10DOF()
-    accel = np.array([0.0, 0.0, 9.80665])
-    target_yaw = 1.25  # radians
-    ekf.initialize_state(yaw=target_yaw)
-
-    # Steady-state yaw tracking
-    for _ in range(15):
-        ekf.predict(accel=accel, gyro_z=0.0, dt=0.05)
-        res = ekf.update_magnetometer(target_yaw)
-        assert res["nis"] < 10.83
-
-    state = ekf.get_state()
-    assert pytest.approx(state["yaw"], abs=0.05) == target_yaw
-
-    # Test circular angle wrapping across pi boundary
-    res_wrap = ekf.update_magnetometer(-np.pi + 0.1)
-    state_wrapped = ekf.get_state()
-    assert -np.pi <= state_wrapped["yaw"] <= np.pi
-
-
-
-def test_ekf_joseph_form_positive_definite():
-    ekf = EKF10DOF()
-    accel = np.array([0.1, -0.05, 9.81])
-
-    for _ in range(50):
-        ekf.predict(accel=accel, gyro_z=0.02, dt=0.02)
-        ekf.update_gps(np.array([1.0, 2.0, 10.0]))
-        ekf.update_baro(10.0)
-        ekf.update_magnetometer(0.5)
-
-    # Minimum eigenvalue of covariance matrix P must be strictly positive
-    eigvals = np.linalg.eigvalsh(ekf.P)
-    assert np.all(eigvals > 0.0), f"Covariance matrix lost positive-definiteness: min eig={np.min(eigvals)}"
-    assert np.allclose(ekf.P, ekf.P.T, atol=1e-8), "Covariance matrix is not symmetric"
-
-
-def test_ekf_adaptive_process_noise_maneuver():
-    ekf_nominal = EKF10DOF()
-    ekf_maneuver = EKF10DOF()
-
-    # Nominal level flight
-    accel_nominal = np.array([0.0, 0.0, 9.80665])
-    # Aggressive maneuvering turn (extra 4.0 m/s^2 centripetal accel)
-    accel_maneuver = np.array([4.0, 0.0, 9.80665])
-
-    for _ in range(20):
-        ekf_nominal.predict(accel=accel_nominal, gyro_z=0.0, dt=0.05)
-        ekf_maneuver.predict(accel=accel_maneuver, gyro_z=0.2, dt=0.05)
-
-    # Maneuver EKF should have higher velocity covariance due to adaptive Q-inflation
-    cov_nom_vel = float(np.trace(ekf_nominal.P[3:6, 3:6]))
-    cov_man_vel = float(np.trace(ekf_maneuver.P[3:6, 3:6]))
-    assert cov_man_vel > cov_nom_vel, "Adaptive process noise did not inflate covariance during aggressive maneuver"
-
-
-def test_ekf_dynamic_gps_covariance():
-    ekf = EKF10DOF()
-    pos = np.array([10.0, 10.0, 20.0])
-    ekf.initialize_state(position=pos)
-
-    # High uncertainty covariance (e.g. poor satellite DOP)
-    high_cov = np.eye(3) * 50.0
-    res_high = ekf.update_gps(pos + np.array([2.0, 0.0, 0.0]), cov=high_cov)
-
-    # Filter should de-weight noisy measurement and not jump by 2 meters
-    state = ekf.get_state()
-    assert state["position"][0] < 10.5
-
-
+    # Attempting to update GPS on trusted filter returns None and does not affect state
+    diag = trusted_ekf.update_gps(np.array([50.0, 50.0, 10.0]))
+    assert diag is None
+    assert np.allclose(trusted_ekf.position, [0.0, 0.0, 10.0])

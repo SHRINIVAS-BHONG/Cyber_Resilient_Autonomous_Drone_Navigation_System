@@ -1,14 +1,15 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>px4_controller</name>
-  <version>1.0.0</version>
-  <description>PX4 offboard flight controller node for cyber-resilient mission tracking</description>
-  <maintainer email="developer@example.com">Developer</maintainer>
-  <license>MIT</license>
+  <version>2.0.0</version>
+  <description>PX4 and trajectory controller node</description>
+  <maintainer email="user@example.com">Resilience Team</maintainer>
+  <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>drone_interfaces</depend>
 
   <export>

@@ -1,52 +1,84 @@
+import numpy as np
+import pytest
 import sys
 from pathlib import Path
-import pytest
 
-# Add residual_detector package to path
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent / "ros2_ws" / "src" / "residual_detector"))
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from residual_detector.detector_engine import ResidualDetectorEngine, DetectionState
-
-
-def test_detector_normal_operation():
-    engine = ResidualDetectorEngine(consecutive_alarms_to_confirm=5)
-    # Feed normal low NIS values (< 11.34)
-    for _ in range(10):
-        res = engine.process_sensor_residual(sensor_name="gps", nis=2.1)
-        assert res["state"] == DetectionState.NORMAL.value
-        assert res["is_anomaly"] is False
-        assert len(res["compromised_sensors"]) == 0
+from cyber_drone.anomaly_detector import AnomalyDetector
 
 
-def test_detector_attack_confirmation():
-    engine = ResidualDetectorEngine(consecutive_alarms_to_confirm=5)
-    
-    # 1. First alarm -> state becomes SUSPICIOUS
-    res1 = engine.process_sensor_residual(sensor_name="gps", nis=45.0)
-    assert res1["state"] == DetectionState.SUSPICIOUS.value
-    assert res1["is_anomaly"] is True
+def test_detector_clean_baseline_zero_alarms():
+    detector = AnomalyDetector()
+    trusted_pos = np.array([20.0, 10.0, 10.0])
+    trusted_cov = np.eye(3) * 0.1
 
-    # 2. Feed consecutive high alarms -> transitions to ATTACK_CONFIRMED
-    for _ in range(5):
-        res = engine.process_sensor_residual(sensor_name="gps", nis=55.0)
+    # Simulate 20 clean steps (2 seconds)
+    for step in range(20):
+        t = step * 0.1
+        detector.record_sensor_message("gps", t)
+        # Small noise
+        gps_pos = trusted_pos + np.array([0.05, -0.05, 0.02])
+        diag = detector.check_all(
+            current_time=t,
+            gps_pos=gps_pos,
+            trusted_pos=trusted_pos,
+            trusted_cov_pos=trusted_cov,
+            main_gps_nis=1.5,
+            imu_integrated_vel=np.array([1.0, 0.0, 0.0]),
+            vision_vel=np.array([1.02, 0.01, 0.0]),
+            lidar_alt=10.05,
+            baro_alt=9.98
+        )
+        assert diag["status"] == "NORMAL"
+        assert len(diag["compromised_sensors"]) == 0
 
-    assert res["state"] == DetectionState.ATTACK_CONFIRMED.value
-    assert "gps" in res["compromised_sensors"]
-    assert res["confidence"] >= 1.0
+
+def test_detector_gps_jump_confirmation():
+    detector = AnomalyDetector()
+    trusted_pos = np.array([20.0, 10.0, 10.0])
+    trusted_cov = np.eye(3) * 0.1
+
+    # Sudden 30m jump
+    jump_gps = trusted_pos + np.array([30.0, 0.0, 0.0])
+
+    for step in range(10):
+        t = step * 0.1
+        detector.record_sensor_message("gps", t)
+        diag = detector.check_all(
+            current_time=t,
+            gps_pos=jump_gps,
+            trusted_pos=trusted_pos,
+            trusted_cov_pos=trusted_cov,
+            main_gps_nis=45.0,  # High NIS
+            imu_integrated_vel=np.array([1.0, 0.0, 0.0]),
+            vision_vel=np.array([1.0, 0.0, 0.0]),
+            lidar_alt=10.0,
+            baro_alt=10.0
+        )
+        if step >= 5:
+            assert diag["status"] == "ATTACK_CONFIRMED"
+            assert "gps" in diag["compromised_sensors"]
 
 
-def test_detector_recovery_after_attack_ends():
-    engine = ResidualDetectorEngine(consecutive_alarms_to_confirm=3, recovery_samples_to_clear=5)
+def test_detector_watchdog_blackout():
+    detector = AnomalyDetector()
+    trusted_pos = np.array([0.0, 0.0, 10.0])
+    trusted_cov = np.eye(3) * 0.1
 
-    # 1. Trigger attack
-    for _ in range(4):
-        engine.process_sensor_residual(sensor_name="gps", nis=60.0)
-    assert engine.current_state == DetectionState.ATTACK_CONFIRMED
-
-    # 2. Attack ceases, feed clean residuals
-    for _ in range(6):
-        res = engine.process_sensor_residual(sensor_name="gps", nis=1.5)
-
-    # Should clear compromised list
-    assert "gps" not in res["compromised_sensors"]
-    assert res["state"] == DetectionState.NORMAL.value
+    # Timestamp progresses but no GPS messages recorded
+    t = 2.0
+    diag = detector.check_all(
+        current_time=t,
+        gps_pos=None,
+        trusted_pos=trusted_pos,
+        trusted_cov_pos=trusted_cov,
+        main_gps_nis=None,
+        imu_integrated_vel=np.zeros(3),
+        vision_vel=np.zeros(3),
+        lidar_alt=10.0,
+        baro_alt=10.0
+    )
+    assert "gps" in diag["compromised_sensors"]
+    assert diag["attack_type"] == "communication_disruption"

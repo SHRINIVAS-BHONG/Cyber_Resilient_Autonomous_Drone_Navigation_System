@@ -1,8 +1,15 @@
-# Python
+# ==============================================================================
+# Git Ignore Configuration
+# Cyber-Resilient Autonomous Drone Navigation System
+# ==============================================================================
+
+# Python Bytecode & Cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# Distribution / Packaging
 .Python
 build/
 develop-eggs/
@@ -16,26 +23,62 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Testing & Linting
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
+MANIFEST
 
 # Virtual Environments
 .venv/
-env/
 venv/
 ENV/
+env/
+env.bak/
+venv.bak/
 
-# Large raw external downloads (auto-downloadable via download_real_dataset.py)
-ml/data/real_*.csv
+# Unit Tests & Coverage
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+htmlcov/
 
-# OS specific
+# ROS 2 & Colcon Build Artifacts
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+install/
+log/
+colcon.meta
+
+# Simulation & Telemetry Runs (ignore raw step-by-step logs, preserve reports)
+runs/*
+!runs/reports/
+!runs/reports/*
+
+# Streamlit Local Config
+.streamlit/secrets.toml
+
+# IDEs & Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# Operating System Files & Environment Shims
 .DS_Store
 Thumbs.db
+Desktop.ini
+ehthumbs.db
+powershell.cmd

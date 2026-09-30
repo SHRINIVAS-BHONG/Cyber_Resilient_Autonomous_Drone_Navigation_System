@@ -1,1 +1,1 @@
-# Path Planner Package
+"""Path planner ROS 2 package."""

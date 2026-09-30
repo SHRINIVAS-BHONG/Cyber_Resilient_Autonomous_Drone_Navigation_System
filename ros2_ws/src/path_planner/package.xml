@@ -1,15 +1,15 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>path_planner</name>
-  <version>1.0.0</version>
-  <description>Risk-aware A* path planner node for cyber resilience</description>
-  <maintainer email="developer@example.com">Developer</maintainer>
-  <license>MIT</license>
+  <version>2.0.0</version>
+  <description>A* path planner node</description>
+  <maintainer email="user@example.com">Resilience Team</maintainer>
+  <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
-  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>drone_interfaces</depend>
 
   <export>

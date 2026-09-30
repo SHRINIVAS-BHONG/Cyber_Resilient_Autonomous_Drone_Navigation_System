@@ -1,22 +1,19 @@
-# Cyber Attack Detection Parameters
-detector:
-  residual_detector:
-    # Chi-square 99% threshold for 3-DOF position innovation
-    nis_warning_threshold: 11.34
-    # Chi-square 99.9% threshold for 3-DOF position innovation
-    nis_alarm_threshold: 16.27
+# Detector configuration and thresholds
+rate_hz: 10.0 # Runs every 100 ms
 
-    # Sliding window & hysteresis
-    window_size: 15
-    consecutive_alarms_to_confirm: 5
-    recovery_samples_to_clear: 20
+hysteresis:
+  confirm_n: 5
+  high_threshold: 0.75
+  low_threshold: 0.25
 
-    # Sensor rate validation
-    max_message_delay_sec: 0.25
-    packet_loss_warning_threshold: 0.15 # 15% packet loss
-    packet_loss_alarm_threshold: 0.30   # 30% packet loss
+thresholds:
+  gps_mahalanobis_dist: 4.5       # Mahalanobis distance vs trusted filter over 2s window
+  gps_nis_chi2_99: 11.345         # Chi-square 3 DOF at 99% confidence
+  watchdog_rate_drop_fraction: 0.70  # Below 70% nominal rate
+  watchdog_max_age_sec: 0.300     # Age above 300 ms
+  imu_vision_vel_divergence: 0.8  # m/s divergence
+  lidar_baro_alt_diff: 1.5        # meters discrepancy
 
-  ml_detector:
-    model_path: "ml/models/random_forest_detector.joblib"
-    confidence_threshold: 0.75
-    feature_window_size: 10
+window_sizes:
+  gps_window_sec: 2.0
+  rate_window_sec: 1.0

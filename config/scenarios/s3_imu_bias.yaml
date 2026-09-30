@@ -1,0 +1,30 @@
+id: s3_imu_bias
+name: "S3: Sensor Manipulation - IMU Bias"
+description: "Constant acceleration bias 0.8 m/s^2 injected into IMU at t=30.0s."
+seed: 42
+mission_duration_sec: 75.0
+mission:
+  takeoff_altitude: 10.0
+  start_point: [0.0, 0.0, 10.0]
+  goal_point: [60.0, 40.0, 10.0]
+  waypoints:
+    - [15.0, 8.0, 10.0]
+    - [30.0, 18.0, 10.0]
+    - [45.0, 30.0, 10.0]
+    - [60.0, 40.0, 10.0]
+
+attack:
+  enabled: true
+  type: imu_bias
+  start_time: 30.0
+  duration: 20.0
+  accel_bias:
+    x: 0.8
+    y: -0.5
+    z: 0.2
+
+expect:
+  detected_within_s: 4.0
+  isolated:
+    - imu_accel
+  mode: vision_lidar_fallback

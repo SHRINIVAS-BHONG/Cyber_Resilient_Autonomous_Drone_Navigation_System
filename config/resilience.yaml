@@ -1,39 +1,28 @@
-# Resilience and Recovery Policies
-resilience:
-  trust_scoring:
-    initial_score: 1.0
-    min_score: 0.0
-    max_score: 1.0
-    penalty_per_anomaly: 0.25
-    reward_per_normal: 0.05
-    quarantine_threshold: 0.35
-    recovery_threshold: 0.85
+# Resilience Manager configuration
+rate_hz: 10.0
 
-  modes:
-    # Available flight safety modes:
-    # - NORMAL_MISSION
-    # - DEGRADED_OPTICAL_LIDAR
-    # - HOLD_POSITION
-    # - SAFE_RETURN_TO_BASE
-    # - EMERGENCY_LANDING
-    default_mode: "NORMAL_MISSION"
-    min_confidence_to_navigate: 0.40
+states:
+  - NORMAL
+  - SUSPICIOUS
+  - ATTACK_CONFIRMED
+  - CONTAINMENT
+  - SAFE_NAVIGATION
+  - RECOVERY
+  - RECOVERED
 
-  policies:
-    gps_spoofing:
-      action: "ISOLATE_GPS_AND_FALLBACK"
-      fallback_sensors: ["vision_pose", "lidar", "imu"]
-      target_mode: "DEGRADED_OPTICAL_LIDAR"
-      speed_reduction_factor: 0.6
+trust_decay:
+  suspicious_penalty: 0.15
+  attack_penalty: 0.50
+  recovery_reward_per_sec: 0.20
 
-    imu_manipulation:
-      action: "INCREASE_PROCESS_NOISE_AND_ISOLATE"
-      target_mode: "HOLD_POSITION"
+containment:
+  covariance_inflation_factor: 10.0
+  reintegration_dwell_sec: 5.0    # 5 s continuous agreement required
+  reintegration_ramp_sec: 3.0     # Ramp covariance back down over 3 s
+  max_compromised_sensors_before_abort: 2 # >= 2 triggers hover/safe landing
+  min_estimator_confidence: 0.35  # Below this triggers emergency landing
 
-    communication_disruption:
-      action: "EXECUTE_PRECOMPUTED_SAFE_PATH"
-      target_mode: "SAFE_RETURN_TO_BASE"
-
-    multi_sensor_compromise:
-      action: "TRIGGER_EMERGENCY_LANDING"
-      target_mode: "EMERGENCY_LANDING"
+safe_landing_zone:
+  x: 62.0
+  y: 38.0
+  z: 0.0

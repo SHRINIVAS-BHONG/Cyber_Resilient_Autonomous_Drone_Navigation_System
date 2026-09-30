@@ -1,0 +1,30 @@
+id: s2_gps_jump
+name: "S2: GPS Spoofing - Instant Jump"
+description: "GPS position abruptly jumps by 30 meters at t=30.0s."
+seed: 42
+mission_duration_sec: 75.0
+mission:
+  takeoff_altitude: 10.0
+  start_point: [0.0, 0.0, 10.0]
+  goal_point: [60.0, 40.0, 10.0]
+  waypoints:
+    - [15.0, 8.0, 10.0]
+    - [30.0, 18.0, 10.0]
+    - [45.0, 30.0, 10.0]
+    - [60.0, 40.0, 10.0]
+
+attack:
+  enabled: true
+  type: gps_jump
+  start_time: 30.0
+  duration: 20.0
+  offset:
+    x: 22.0
+    y: 20.0
+    z: 0.0
+
+expect:
+  detected_within_s: 2.0
+  isolated:
+    - gps
+  mode: safe_local_navigation

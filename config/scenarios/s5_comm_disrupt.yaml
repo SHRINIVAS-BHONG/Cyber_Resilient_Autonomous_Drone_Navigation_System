@@ -1,0 +1,30 @@
+id: s5_comm_disrupt
+name: "S5: Communication Disruption - Packet Loss & Delay with Blackout"
+description: "30% message drop + 500 ms delay on GPS, followed by a complete 10s GPS blackout."
+seed: 42
+mission_duration_sec: 75.0
+mission:
+  takeoff_altitude: 10.0
+  start_point: [0.0, 0.0, 10.0]
+  goal_point: [60.0, 40.0, 10.0]
+  waypoints:
+    - [15.0, 8.0, 10.0]
+    - [30.0, 18.0, 10.0]
+    - [45.0, 30.0, 10.0]
+    - [60.0, 40.0, 10.0]
+
+attack:
+  enabled: true
+  type: comm_disruption
+  start_time: 30.0
+  duration: 20.0
+  drop_rate: 0.30
+  delay_ms: 500.0
+  blackout_start_time: 40.0
+  blackout_duration: 10.0
+
+expect:
+  detected_within_s: 2.5
+  isolated:
+    - gps
+  mode: comm_loss_hold_and_safe_nav

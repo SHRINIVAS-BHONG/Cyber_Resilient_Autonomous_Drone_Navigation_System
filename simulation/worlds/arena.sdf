@@ -1,0 +1,133 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="cyber_resilient_arena">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.002</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <!-- Sun Light -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 50 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Ground Plane 100m x 100m -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>120 120</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>120 120</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.2 0.2 0.25 1</ambient>
+            <diffuse>0.3 0.3 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 1: Cylinder at (20, 15) r=3m h=15m -->
+    <model name="obstacle_1">
+      <static>true</static>
+      <pose>20 15 7.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><cylinder><radius>3.0</radius><length>15.0</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>3.0</radius><length>15.0</length></cylinder></geometry>
+          <material><diffuse>0.8 0.2 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 2: Cylinder at (35, 22) r=4m h=15m (directly near direct start-goal path) -->
+    <model name="obstacle_2">
+      <static>true</static>
+      <pose>35 22 7.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><cylinder><radius>4.0</radius><length>15.0</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>4.0</radius><length>15.0</length></cylinder></geometry>
+          <material><diffuse>0.8 0.2 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 3: Cylinder at (48, 32) r=3.5m h=15m -->
+    <model name="obstacle_3">
+      <static>true</static>
+      <pose>48 32 7.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><cylinder><radius>3.5</radius><length>15.0</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>3.5</radius><length>15.0</length></cylinder></geometry>
+          <material><diffuse>0.8 0.2 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 4: Cylinder at (28, 38) r=3.0m h=15m -->
+    <model name="obstacle_4">
+      <static>true</static>
+      <pose>28 38 7.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><cylinder><radius>3.0</radius><length>15.0</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>3.0</radius><length>15.0</length></cylinder></geometry>
+          <material><diffuse>0.8 0.2 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 5: Cylinder at (10, 25) r=2.5m h=15m -->
+    <model name="obstacle_5">
+      <static>true</static>
+      <pose>10 25 7.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><cylinder><radius>2.5</radius><length>15.0</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><cylinder><radius>2.5</radius><length>15.0</length></cylinder></geometry>
+          <material><diffuse>0.8 0.2 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Landing Zone Mark at (62, 38, 0.05) -->
+    <model name="landing_pad">
+      <static>true</static>
+      <pose>62 38 0.02 0 0 0</pose>
+      <link name="link">
+        <visual name="vis">
+          <geometry><box><size>4.0 4.0 0.04</size></box></geometry>
+          <material><diffuse>0.2 0.8 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

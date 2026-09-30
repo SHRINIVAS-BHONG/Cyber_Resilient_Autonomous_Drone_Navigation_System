@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>detector</name>
+  <version>2.0.0</version>
+  <description>Anomaly and attack detector node</description>
+  <maintainer email="user@example.com">Resilience Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>drone_interfaces</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,24 @@
+id: s0_normal
+name: "S0: Baseline Flight"
+description: "Clean flight with nominal sensor noise and no cyberattacks."
+seed: 42
+mission_duration_sec: 75.0
+mission:
+  takeoff_altitude: 10.0
+  start_point: [0.0, 0.0, 10.0]
+  goal_point: [60.0, 40.0, 10.0]
+  waypoints:
+    - [15.0, 8.0, 10.0]
+    - [30.0, 18.0, 10.0]
+    - [45.0, 30.0, 10.0]
+    - [60.0, 40.0, 10.0]
+
+attack:
+  enabled: false
+  type: none
+
+expect:
+  detected_within_s: null
+  isolated: []
+  mode: normal_navigation
+  max_acceptable_error_m: 1.5

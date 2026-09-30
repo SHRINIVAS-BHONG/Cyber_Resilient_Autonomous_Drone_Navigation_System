@@ -1,35 +1,28 @@
-# Sensor configuration and noise characteristics
-sensors:
-  imu:
-    topic: "/sensor/imu"
-    rate_hz: 100.0
-    gyro_noise_density: 0.0003394     # rad/s/sqrt(Hz)
-    accel_noise_density: 0.004        # m/s^2/sqrt(Hz)
-    gyro_random_walk: 0.000038785     # rad/s^2/sqrt(Hz)
-    accel_random_walk: 0.006          # m/s^3/sqrt(Hz)
+# Sensor configuration and noise models
+gps:
+  rate_hz: 10.0
+  position_noise_sigma: 0.5   # meters (x, y)
+  altitude_noise_sigma: 0.8   # meters (z)
+  velocity_noise_sigma: 0.1   # m/s
 
-  gps:
-    topic: "/sensor/gps"
-    rate_hz: 10.0
-    horizontal_accuracy: 0.5          # meters (1-sigma)
-    vertical_accuracy: 0.8            # meters (1-sigma)
-    velocity_accuracy: 0.1            # m/s (1-sigma)
-    timeout_sec: 0.5
+imu:
+  rate_hz: 100.0
+  accel_noise_sigma: 0.05     # m/s^2
+  gyro_noise_sigma: 0.01      # rad/s
+  accel_bias_constant: [0.02, -0.01, 0.01]  # m/s^2
 
-  lidar:
-    topic: "/sensor/lidar"
-    rate_hz: 20.0
-    min_range: 0.2                    # meters
-    max_range: 30.0                   # meters
-    noise_std: 0.03                   # meters
+barometer:
+  rate_hz: 20.0
+  altitude_noise_sigma: 0.3   # meters
 
-  barometer:
-    topic: "/sensor/barometer"
-    rate_hz: 50.0
-    noise_std: 0.2                    # meters
+lidar:
+  rate_hz: 10.0
+  range_min: 0.2              # meters
+  range_max: 30.0             # meters
+  noise_sigma: 0.03           # meters
+  beam_count: 360
 
-  vision_pose:
-    topic: "/sensor/vision_pose"
-    rate_hz: 30.0
-    position_noise_std: 0.05          # meters
-    orientation_noise_std: 0.02       # rad
+vision:
+  rate_hz: 20.0
+  position_noise_sigma: 0.1   # meters
+  drift_rate_per_sec: 0.02    # m/s drift accumulation

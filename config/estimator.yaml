@@ -1,34 +1,36 @@
-# Extended Kalman Filter (EKF) Configuration
-estimator:
-  update_rate_hz: 50.0
-  state_dimension: 10  # [px, py, pz, vx, vy, vz, bax, bay, baz, yaw]
+# Estimator (EKF) configuration
+state_dimension: 10 # px, py, pz, vx, vy, vz, bax, bay, baz, yaw
+rate_hz: 50.0
 
-  initial_state:
-    position: [0.0, 0.0, 0.0]
-    velocity: [0.0, 0.0, 0.0]
-    accel_bias: [0.0, 0.0, 0.0]
-    yaw: 0.0
+process_noise:
+  pos: 0.01
+  vel: 0.1
+  acc_bias: 0.001
+  yaw: 0.005
 
-  initial_covariance:
-    position: 0.1
-    velocity: 0.1
-    accel_bias: 0.01
-    yaw: 0.05
+measurement_noise:
+  gps_pos: 0.5
+  gps_vel: 0.1
+  baro_alt: 0.3
+  vision_pos: 0.15
+  lidar_alt: 0.05
 
-  process_noise:
-    position: 0.01
-    velocity: 0.1
-    accel_bias: 0.001
-    yaw: 0.005
+initial_covariance:
+  pos: 1.0
+  vel: 0.5
+  acc_bias: 0.1
+  yaw: 0.1
 
-  measurement_noise:
-    gps_pos: 0.25      # (0.5m)^2
-    gps_vel: 0.01      # (0.1m/s)^2
-    lidar_z: 0.0009    # (0.03m)^2
-    vision_pos: 0.0025 # (0.05m)^2
-    baro_z: 0.04       # (0.2m)^2
-
-  chi2_gate:
-    gps: 16.27         # 99.9% gate for 3 DOF
-    lidar: 10.83       # 99.9% gate for 1 DOF
-    vision: 16.27      # 99.9% gate for 3 DOF
+filters:
+  main:
+    use_gps: true
+    use_imu: true
+    use_baro: true
+    use_vision: true
+    use_lidar: true
+  trusted:
+    use_gps: false # Never uses GPS
+    use_imu: true
+    use_baro: true
+    use_vision: true
+    use_lidar: true

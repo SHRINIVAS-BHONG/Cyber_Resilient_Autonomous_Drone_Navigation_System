@@ -1,0 +1,27 @@
+id: s4_lidar_corrupt
+name: "S4: Sensor Manipulation - LiDAR Scaling Corruption"
+description: "LiDAR ranges scaled by 0.6 creating false proximity and altitude discrepancy."
+seed: 42
+mission_duration_sec: 75.0
+mission:
+  takeoff_altitude: 10.0
+  start_point: [0.0, 0.0, 10.0]
+  goal_point: [60.0, 40.0, 10.0]
+  waypoints:
+    - [15.0, 8.0, 10.0]
+    - [30.0, 18.0, 10.0]
+    - [45.0, 30.0, 10.0]
+    - [60.0, 40.0, 10.0]
+
+attack:
+  enabled: true
+  type: lidar_corruption
+  start_time: 30.0
+  duration: 20.0
+  scale_factor: 0.6
+
+expect:
+  detected_within_s: 3.0
+  isolated:
+    - lidar
+  mode: safe_inflation_navigation

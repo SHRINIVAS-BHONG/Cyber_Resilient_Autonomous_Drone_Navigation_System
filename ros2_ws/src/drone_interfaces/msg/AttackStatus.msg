@@ -1,6 +1,3 @@
-# AttackStatus.msg
-# Cyber attack status and detection metadata
-
 string attack_type
 bool detected
 float32 confidence
