@@ -2317,15 +2317,21 @@
       droneGroup.position.set(pos[0], pos[2], pos[1]);
       ghostDrone.position.set(rawGps[0], rawGps[2], rawGps[1]);
 
-      // Aerodynamic attitude rotation
-      droneGroup.rotation.y = -THREE.MathUtils.degToRad(yaw);
+      // Authentic Quadcopter Attitude Rendering
+      // In Three.js: X is East, Y is Altitude (Up), Z is North
+      // Intrinsic Euler aerospace order: Yaw (Heading around Y) -> Pitch (Nose tilt around X) -> Roll (Bank around Z)
+      droneGroup.rotation.order = 'YXZ';
+      droneGroup.rotation.y = THREE.MathUtils.degToRad(yaw);
       droneGroup.rotation.x = THREE.MathUtils.degToRad(pitch);
       droneGroup.rotation.z = THREE.MathUtils.degToRad(roll);
+
+      ghostDrone.rotation.order = 'YXZ';
+      ghostDrone.rotation.copy(droneGroup.rotation);
 
       // Camera Modes Update
       if (currentCamMode === 'chase') {
         const offset = new THREE.Vector3(0, 3.5, -9);
-        offset.applyEuler(new THREE.Euler(0, -THREE.MathUtils.degToRad(yaw), 0));
+        offset.applyEuler(new THREE.Euler(0, THREE.MathUtils.degToRad(yaw), 0, 'YXZ'));
         camera.position.copy(droneGroup.position).add(offset);
         camera.lookAt(droneGroup.position.x, droneGroup.position.y + 1.2, droneGroup.position.z);
       } else if (currentCamMode === 'fpv') {

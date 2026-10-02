@@ -498,8 +498,10 @@ class SystemStateManager:
                 self.drone_vel = np.array([0.0, 0.0, 0.0])
                 self.flight_phase = "CRUISE"
         elif self.flight_phase == "LANDING":
-            # Dampen horizontal speed
+            # Dampen horizontal speed and level out attitude
             self.drone_vel[:2] *= 0.70
+            self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+            self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
             # Vertical descent with ground-effect air-cushion deceleration near touchdown surface
             remaining_dist = self.drone_pos[2] - touchdown_z
             if self.ground_effect_enabled and remaining_dist < 1.2:
@@ -514,6 +516,8 @@ class SystemStateManager:
             if self.drone_pos[2] <= touchdown_z:
                 self.drone_pos[2] = touchdown_z
                 self.drone_vel = np.array([0.0, 0.0, 0.0])
+                self.roll_deg = 0.0
+                self.pitch_deg = 0.0
                 self.flight_phase = "LANDED"
                 self.is_airborne = False
         elif self.flight_phase == "RTL_CLIMB":
@@ -522,6 +526,8 @@ class SystemStateManager:
             self.drone_vel[:2] *= 0.5
             self.drone_vel[2] = self.climb_speed
             self.drone_pos[2] += self.drone_vel[2] * dt
+            self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+            self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
             if self.drone_pos[2] >= self.rtl_altitude:
                 self.drone_pos[2] = self.rtl_altitude
                 self.flight_phase = "RTL_LAND"
@@ -540,11 +546,14 @@ class SystemStateManager:
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
                 self.drone_pos[2] = self.rtl_altitude
 
-                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
+                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[0], vel_dir_xy[1])) % 360)
                 yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
-                self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
-                self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
-                self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
+                turn_rate = float(np.clip(yaw_diff * 3.5, -45.0, 45.0))
+                self.yaw_deg = float((self.yaw_deg + turn_rate * dt) % 360)
+                target_pitch = float(np.clip(speed * 0.70, 0.0, 4.0))
+                target_roll = float(np.clip(-turn_rate * 0.10, -5.0, 5.0))
+                self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
+                self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
         elif self.flight_phase == "ROOFTOP_APPROACH":
             # Navigate towards rooftop target coordinates at safe transit altitude
             target_xy = self.target_goal[:2] if self.target_goal is not None else np.array([0.0, 0.0])
@@ -569,16 +578,21 @@ class SystemStateManager:
                 self.drone_vel[:2] = vel_dir_xy * speed
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
 
-                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
+                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[0], vel_dir_xy[1])) % 360)
                 yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
-                self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
-                self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
-                self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
+                turn_rate = float(np.clip(yaw_diff * 3.5, -45.0, 45.0))
+                self.yaw_deg = float((self.yaw_deg + turn_rate * dt) % 360)
+                target_pitch = float(np.clip(speed * 0.70, 0.0, 4.0))
+                target_roll = float(np.clip(-turn_rate * 0.10, -5.0, 5.0))
+                self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
+                self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
         elif attack_type == "multi_attack":
             # Coordinated multi-sensor compromise triggers safe landing zone descent
             target_wp = self.emergency_landing_zone
             diff_xy = target_wp[:2] - self.drone_pos[:2]
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
+            self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+            self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
             if dist_xy < 1.5:
                 # Hover and slow descent
                 self.drone_pos[2] = max(touchdown_z, self.drone_pos[2] - 0.7 * dt)
@@ -593,6 +607,8 @@ class SystemStateManager:
         elif "imu" in self.resilience.isolated_sensors:
             # IMU manipulation -> Hold stable hover position at cruise altitude
             self.drone_vel = np.array([0.0, 0.0, 0.0])
+            self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+            self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
             if self.drone_pos[2] < self.cruise_altitude:
                 self.drone_pos[2] = min(self.cruise_altitude, self.drone_pos[2] + 1.0 * dt)
         else:
@@ -619,6 +635,8 @@ class SystemStateManager:
                 if self.mission_type == "target_point" and is_final_wp:
                     # Precision hover at target goal coordinate
                     self.drone_vel[:2] = np.array([0.0, 0.0])
+                    self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+                    self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
                 else:
                     self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
             else:
@@ -626,12 +644,16 @@ class SystemStateManager:
                 self.drone_vel[:2] = vel_dir_xy * speed
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
 
-                # Smooth Aerodynamic Attitude
-                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[1], vel_dir_xy[0])) % 360)
+                # Authentic Quadcopter Dynamic Attitude (Aviation Heading & Coordinated Bank)
+                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[0], vel_dir_xy[1])) % 360)
                 yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
-                self.yaw_deg = float((self.yaw_deg + np.clip(yaw_diff * 0.18, -45.0 * dt, 45.0 * dt)) % 360)
-                self.roll_deg = float(np.clip(-yaw_diff * 0.35, -15.0, 15.0))
-                self.pitch_deg = float(np.clip(-speed * 3.0, -12.0, 12.0))
+                turn_rate = float(np.clip(yaw_diff * 3.5, -45.0, 45.0))
+                self.yaw_deg = float((self.yaw_deg + turn_rate * dt) % 360)
+
+                target_pitch = float(np.clip(speed * 0.70, 0.0, 4.0))
+                target_roll = float(np.clip(-turn_rate * 0.10, -5.0, 5.0))
+                self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
+                self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
 
         # Active Obstacle Awareness, Physical Boundary Enforcement & Realistic Overflight
         if self.is_airborne and self.flight_phase not in ["LANDED"]:
