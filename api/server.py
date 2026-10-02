@@ -124,7 +124,7 @@ class TelemetryPacket(BaseModel):
     altitude_agl_m: Optional[float] = 15.0
     surface_name: Optional[str] = "GROUND_TARMAC"
     surface_elevation_m: Optional[float] = 0.0
-    target_touchdown_z: Optional[float] = 0.35
+    target_touchdown_z: Optional[float] = 0.53
     ground_speed_mps: Optional[float] = 4.5
     roll_deg: Optional[float] = 0.0
     pitch_deg: Optional[float] = 0.0
@@ -177,9 +177,9 @@ class SystemStateManager:
         self.yaw_deg = 0.0
 
         # Physical Surface & Elevation Engine
-        self.landing_gear_offset = 0.35
-        self.target_touchdown_z = 0.35
-        self.ground_altitude = 0.35
+        self.landing_gear_offset = 0.53
+        self.target_touchdown_z = 0.53
+        self.ground_altitude = 0.53
         self.current_surface = "GROUND_TARMAC"
         self.surface_elevation = 0.0
 
@@ -236,7 +236,7 @@ class SystemStateManager:
             "altitude_agl_m": self.cruise_altitude,
             "surface_name": "GROUND_TARMAC",
             "surface_elevation_m": 0.0,
-            "target_touchdown_z": 0.35,
+            "target_touchdown_z": 0.53,
             "ground_speed_mps": 0.0,
             "roll_deg": 0.0,
             "pitch_deg": 0.0,
@@ -288,21 +288,21 @@ class SystemStateManager:
         """
         # 1. Hangar Alpha Rooftop Helipad (x=160, y=0, width X: [153.0, 167.0], length Y: [-14.0, 14.0])
         if 153.0 <= x <= 167.0 and -14.0 <= y <= 14.0:
-            return 7.0, "HANGAR_ALPHA_ROOF", True
+            return 7.20, "HANGAR_ALPHA_ROOF", True
 
         # 2. Hangar Beta Rooftop Helipad (x=-160, y=-90, width X: [-167.0, -153.0], length Y: [-104.0, -76.0])
         if -167.0 <= x <= -153.0 and -104.0 <= y <= -76.0:
-            return 7.0, "HANGAR_BETA_ROOF", True
+            return 7.20, "HANGAR_BETA_ROOF", True
 
         # 3. Hangar Gamma Rooftop Helipad (x=0, y=-180, width X: [-14.0, 14.0], length Y: [-187.0, -173.0])
         if -14.0 <= x <= 14.0 and -187.0 <= y <= -173.0:
-            return 7.0, "HANGAR_GAMMA_ROOF", True
+            return 7.20, "HANGAR_GAMMA_ROOF", True
 
-        # 4. Radar Bunker Observation & Servicing Decks (Deck height: 3.2m)
+        # 4. Radar Bunker Observation & Servicing Decks (Deck height: 3.30m)
         if math.hypot(x - (-90.0), y - 180.0) <= 5.0:
-            return 3.2, "DELTA_RADAR_DECK", True
+            return 3.30, "DELTA_RADAR_DECK", True
         if math.hypot(x - 220.0, y - 190.0) <= 5.0:
-            return 3.2, "ECHO_RADAR_DECK", True
+            return 3.30, "ECHO_RADAR_DECK", True
 
         # 5. Tactical Field Outposts & Helipads Across the 1600m Airfield
         if math.hypot(x, y) <= 6.0:
@@ -537,7 +537,7 @@ class SystemStateManager:
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
             if dist_xy < 1.0:
                 # Aligned directly over Base Alpha helipad! Initiate precision vertical landing
-                self.target_touchdown_z = 0.35
+                self.target_touchdown_z = 0.53
                 self.flight_phase = "LANDING"
             else:
                 vel_dir_xy = diff_xy / (dist_xy + 1e-6)

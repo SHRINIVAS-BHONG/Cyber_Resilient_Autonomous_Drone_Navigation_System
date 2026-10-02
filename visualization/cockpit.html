@@ -2369,6 +2369,9 @@
         spoofTrailPoints.length = 0;
       }
 
+      // Hide downward LiDAR cone when resting on ground or rooftop
+      const isLandedState = (data.flight_phase === 'LANDED' || data.is_airborne === false);
+      lidarCone.visible = !isLandedState;
 
       // Update Destination Beacon & Planned Trajectory
       const missionType = data.mission_type || "patrol";
@@ -2380,14 +2383,15 @@
       document.getElementById('target-dist-val').innerText = `${distToGoal} m`;
 
       if (targetGoal && missionType === "target_point") {
-        destBeaconGroup.position.set(targetGoal[0], 0, targetGoal[1]);
-        destBeaconGroup.visible = true;
-        document.getElementById('target-coords-txt').innerText = `[${targetGoal[0].toFixed(1)}, ${targetGoal[1].toFixed(1)}, ${targetGoal[2]?.toFixed(1) || 12.0}m]`;
+        const beaconY = parseFloat(data.surface_elevation_m || 0.0);
+        destBeaconGroup.position.set(targetGoal[0], beaconY, targetGoal[1]);
+        destBeaconGroup.visible = !isLandedState;
+        document.getElementById('target-coords-txt').innerText = `[${targetGoal[0].toFixed(1)}, ${targetGoal[1].toFixed(1)}, ${targetGoal[2]?.toFixed(1) || 15.0}m]`;
         wpPatrolLine.visible = false;
         patrolHalos.forEach(h => h.visible = false);
       } else {
         destBeaconGroup.visible = false;
-        document.getElementById('target-coords-txt').innerText = `[Patrol Ring at 12m]`;
+        document.getElementById('target-coords-txt').innerText = `[Patrol Ring at 15m]`;
         wpPatrolLine.visible = true;
         patrolHalos.forEach(h => h.visible = true);
       }
