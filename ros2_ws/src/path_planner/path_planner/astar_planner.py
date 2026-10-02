@@ -35,7 +35,8 @@ class AStarPlanner:
         # Occupancy grid (0: free, 1: obstacle, 2: cyber-risk zone)
         self.grid = np.zeros((self.nx, self.ny), dtype=np.uint8)
         self.cost_map = np.zeros((self.nx, self.ny), dtype=np.float32)
-        self.obstacles: List[Dict[str, float]] = []
+        self.obstacles: List[dict] = []
+        self.cyber_risk_zones: List[dict] = []
 
     def world_to_grid(self, x: float, y: float) -> Optional[Tuple[int, int]]:
         """Convert world coordinates (meters) to discrete grid indices."""
@@ -78,6 +79,12 @@ class AStarPlanner:
 
     def add_cyber_risk_zone(self, x: float, y: float, radius: float, risk_level: float = 1.0) -> None:
         """Marks a GPS-jammed or spoofed zone as high-cost to route around."""
+        self.cyber_risk_zones.append({
+            "x": float(x),
+            "y": float(y),
+            "radius": float(radius),
+            "risk_level": float(risk_level)
+        })
         center = self.world_to_grid(x, y)
         if not center:
             return
@@ -105,14 +112,171 @@ class AStarPlanner:
             return False
         return bool(self.grid[gx, gy] == 1)
 
+    def has_line_of_sight(
+        self,
+        p1: Tuple[float, float, float],
+        p2: Tuple[float, float, float],
+        flight_alt: float
+    ) -> bool:
+        """
+        Ray-marching line-of-sight test between p1 and p2.
+        Returns True if a direct straight-line connection is collision-free and cyber-safe.
+        """
+        dist = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+        if dist < 1e-3:
+            return True
+
+        step_size = max(0.2, self.res * 0.4)
+        num_steps = max(2, int(math.ceil(dist / step_size)))
+
+        for i in range(num_steps + 1):
+            alpha = i / num_steps
+            x = p1[0] + alpha * (p2[0] - p1[0])
+            y = p1[1] + alpha * (p2[1] - p1[1])
+
+            # Check physical obstacles
+            for obs in self.obstacles:
+                if (obs["height"] + 1.2) > flight_alt:
+                    safe_r = obs["radius"] + self.inflation_radius
+                    if math.hypot(x - obs["x"], y - obs["y"]) <= safe_r:
+                        return False
+
+            # Check cyber risk zones (e.g. GPS spoofing / jamming zones)
+            for rz in self.cyber_risk_zones:
+                if math.hypot(x - rz["x"], y - rz["y"]) <= rz["radius"]:
+                    return False
+
+            # Check discrete cost map
+            g = self.world_to_grid(x, y)
+            if g is not None:
+                gx, gy = g
+                if self.grid[gx, gy] == 1 and not self.obstacles:
+                    return False
+                if self.cost_map[gx, gy] >= (self.w_risk * 0.5):
+                    return False
+            else:
+                return False
+
+        return True
+
+    def prune_path(
+        self,
+        raw_path: List[Tuple[float, float, float]],
+        start_pos: Tuple[float, float, float],
+        goal_pos: Tuple[float, float, float],
+        flight_alt: float
+    ) -> List[Tuple[float, float, float]]:
+        """
+        Greedy String-Pulling / Line-of-Sight Shortcut Algorithm.
+        Reduces staircase zig-zag grid steps into minimal, clean, tangent flight segments.
+        """
+        if not raw_path or len(raw_path) <= 2:
+            return [start_pos, goal_pos] if len(raw_path) == 2 else raw_path
+
+        pruned = [start_pos]
+        curr_idx = 0
+
+        while curr_idx < len(raw_path) - 1:
+            next_idx = len(raw_path) - 1
+            while next_idx > curr_idx + 1:
+                if self.has_line_of_sight(raw_path[curr_idx], raw_path[next_idx], flight_alt):
+                    break
+                next_idx -= 1
+            pruned.append(raw_path[next_idx])
+            curr_idx = next_idx
+
+        pruned[0] = start_pos
+        pruned[-1] = goal_pos
+        return pruned
+
+    def smooth_trajectory(
+        self,
+        key_points: List[Tuple[float, float, float]],
+        point_spacing: float = 4.0
+    ) -> List[Tuple[float, float, float]]:
+        """
+        Generates a smooth, flyable aerospace trajectory from pruned key waypoints.
+        Applies corner fillets at turning vertices and uniform waypoint spacing.
+        """
+        if len(key_points) <= 1:
+            return key_points
+
+        if len(key_points) == 2:
+            p1, p2 = key_points[0], key_points[1]
+            dist = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+            if dist < 1e-3:
+                return [p1, p2]
+            num_segments = max(1, int(math.ceil(dist / point_spacing)))
+            smooth = []
+            for i in range(num_segments + 1):
+                alpha = i / num_segments
+                x = p1[0] + alpha * (p2[0] - p1[0])
+                y = p1[1] + alpha * (p2[1] - p1[1])
+                z = p1[2] + alpha * (p2[2] - p1[2])
+                smooth.append((round(x, 2), round(y, 2), round(z, 2)))
+            return smooth
+
+        # Multi-segment trajectory with corner fillets
+        smooth_path = [key_points[0]]
+        corner_fillet_radius = 5.0  # meters turn radius for quadcopter banking
+
+        for i in range(1, len(key_points) - 1):
+            p_prev = np.array(key_points[i - 1], dtype=np.float64)
+            p_curr = np.array(key_points[i], dtype=np.float64)
+            p_next = np.array(key_points[i + 1], dtype=np.float64)
+
+            d1 = np.linalg.norm(p_curr[:2] - p_prev[:2])
+            d2 = np.linalg.norm(p_next[:2] - p_curr[:2])
+
+            max_fillet = min(corner_fillet_radius, d1 * 0.45, d2 * 0.45)
+            if max_fillet < 0.5:
+                smooth_path.append(tuple(round(v, 2) for v in p_curr))
+                continue
+
+            u1 = (p_curr - p_prev) / (d1 + 1e-6)
+            u2 = (p_next - p_curr) / (d2 + 1e-6)
+            cut1 = p_curr - u1 * max_fillet
+            cut2 = p_curr + u2 * max_fillet
+
+            last_pt = np.array(smooth_path[-1], dtype=np.float64)
+            leg_dist = np.linalg.norm(cut1[:2] - last_pt[:2])
+            if leg_dist > point_spacing:
+                leg_steps = int(math.ceil(leg_dist / point_spacing))
+                for s in range(1, leg_steps):
+                    interp = last_pt + (cut1 - last_pt) * (s / leg_steps)
+                    smooth_path.append(tuple(round(v, 2) for v in interp))
+            smooth_path.append(tuple(round(v, 2) for v in cut1))
+
+            # Quadratic Bézier transition around vertex
+            fillet_steps = 6
+            for t_step in range(1, fillet_steps):
+                t = t_step / fillet_steps
+                b_pt = ((1 - t) ** 2) * cut1 + 2 * (1 - t) * t * p_curr + (t ** 2) * cut2
+                smooth_path.append(tuple(round(v, 2) for v in b_pt))
+            smooth_path.append(tuple(round(v, 2) for v in cut2))
+
+        # Final leg to goal
+        p_last = np.array(key_points[-1], dtype=np.float64)
+        last_pt = np.array(smooth_path[-1], dtype=np.float64)
+        leg_dist = np.linalg.norm(p_last[:2] - last_pt[:2])
+        if leg_dist > point_spacing:
+            leg_steps = int(math.ceil(leg_dist / point_spacing))
+            for s in range(1, leg_steps):
+                interp = last_pt + (p_last - last_pt) * (s / leg_steps)
+                smooth_path.append(tuple(round(v, 2) for v in interp))
+        smooth_path.append(tuple(round(v, 2) for v in p_last))
+
+        return smooth_path
+
     def plan(
         self,
         start_pos: Tuple[float, float, float],
         goal_pos: Tuple[float, float, float]
     ) -> Optional[List[Tuple[float, float, float]]]:
         """
-        Executes A* search from start to goal in 2D/3D.
-        Returns: list of 3D waypoints [(x, y, z), ...]
+        Executes Risk-Aware A* search with Line-of-Sight Shortcut Pruning
+        and Continuous Curvature Smoothing for authentic flight trajectories.
+        Returns: list of smooth 3D waypoints [(x, y, z), ...]
         """
         start_grid = self.world_to_grid(start_pos[0], start_pos[1])
         goal_grid = self.world_to_grid(goal_pos[0], goal_pos[1])
@@ -143,7 +307,7 @@ class AStarPlanner:
             _, current_g, current = heapq.heappop(open_set)
 
             if current == goal_grid:
-                # Reconstruct path
+                # Reconstruct raw grid path
                 path = [current]
                 while current in came_from:
                     current = came_from[current]
@@ -157,7 +321,9 @@ class AStarPlanner:
                     wx, wy = self.grid_to_world(cell[0], cell[1])
                     waypoints.append((wx, wy, altitude))
 
-                return waypoints
+                # Apply Line-of-Sight Shortcut Pruning & Curvature Smoothing
+                pruned = self.prune_path(waypoints, start_pos, goal_pos, flight_alt)
+                return self.smooth_trajectory(pruned, point_spacing=4.0)
 
             for dx, dy, step_cost in motions:
                 neighbor = (current[0] + dx, current[1] + dy)

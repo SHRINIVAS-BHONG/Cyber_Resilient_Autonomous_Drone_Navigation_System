@@ -815,7 +815,29 @@ class SystemStateManager:
         true_pos = np.copy(self.drone_pos)
         gps_meas = true_pos + np.random.normal(0.0, 0.12, size=(3,))
         gps_vel_meas = self.drone_vel + np.random.normal(0.0, 0.03, size=(3,))
-        imu_accel = np.array([0.0, 0.0, 9.80665]) + np.random.normal(0.0, 0.02, size=(3,))
+
+        # Authentic Kinematic IMU Specific Force in Body Frame
+        if not hasattr(self, "prev_sim_vel"):
+            self.prev_sim_vel = np.copy(self.drone_vel)
+        kinematic_accel = (self.drone_vel - self.prev_sim_vel) / max(dt, 1e-4)
+        self.prev_sim_vel = np.copy(self.drone_vel)
+
+        yaw_rad = math.radians(self.yaw_deg)
+        cos_y = math.cos(yaw_rad)
+        sin_y = math.sin(yaw_rad)
+        ax_body = cos_y * kinematic_accel[0] + sin_y * kinematic_accel[1]
+        ay_body = -sin_y * kinematic_accel[0] + cos_y * kinematic_accel[1]
+        az_body = kinematic_accel[2] + 9.80665
+
+        imu_accel = np.array([ax_body, ay_body, az_body]) + np.random.normal(0.0, 0.02, size=(3,))
+
+        # Authentic Gyroscope Yaw Rate
+        if not hasattr(self, "prev_sim_yaw"):
+            self.prev_sim_yaw = self.yaw_deg
+        yaw_diff = (self.yaw_deg - self.prev_sim_yaw + 180) % 360 - 180
+        gyro_z = math.radians(yaw_diff) / max(dt, 1e-4) + np.random.normal(0.0, 0.005)
+        self.prev_sim_yaw = self.yaw_deg
+
         lidar_z = float(true_pos[2] + np.random.normal(0.0, 0.03))
         vision_pos = true_pos + np.random.normal(0.0, 0.04, size=(3,))
 
@@ -884,9 +906,11 @@ class SystemStateManager:
         # 4. 10-DOF EKF IMU Prediction
         if self.defense_enabled and ("imu" in self.resilience.isolated_sensors):
             used_accel = np.array([0.0, 0.0, 9.80665])
+            used_gyro_z = 0.0
         else:
             used_accel = imu_accel
-        self.ekf.predict(accel=used_accel, gyro_z=0.0, dt=dt)
+            used_gyro_z = gyro_z
+        self.ekf.predict(accel=used_accel, gyro_z=used_gyro_z, dt=dt)
 
         # 5. Extract GPS Innovation Residual & Evaluate Detector from Prior Prediction
         H_pos = np.zeros((3, self.ekf.dim_x), dtype=np.float64)
