@@ -105,3 +105,121 @@ def test_defense_enabled_active_quarantine():
     assert "gps" in telem["isolated_sensors"]
     assert "gps" not in telem["active_sensors"]
     assert telem["navigation_mode"] == "DEGRADED_OPTICAL_LIDAR"
+
+
+def test_imu_attack_physical_divergence_when_defense_off_vs_on():
+    # 1. Defense OFF: IMU attack physically drives the drone into lateral drift and attitude wobble
+    mgr_off = SystemStateManager()
+    mgr_off.flight_phase = "CRUISE"
+    mgr_off.is_airborne = True
+    mgr_off.drone_pos = np.array([0.0, 0.0, 12.0])
+    mgr_off.drone_vel = np.array([0.0, 0.0, 0.0])
+    mgr_off.toggle_defense(enabled=False)
+    mgr_off.active_attack = {"attack_type": "imu_manipulation", "magnitude": 2.5, "duration_sec": 20.0}
+    mgr_off.attack_start_time = mgr_off.start_time
+
+    for _ in range(10):
+        mgr_off.step_simulation(dt=0.1)
+
+    telem_off = mgr_off.get_latest_telemetry()
+    assert telem_off["defense_enabled"] is False
+    assert telem_off["is_attack_active"] is True
+    # Physical velocity and position must show the effect of unmitigated IMU drift
+    assert abs(telem_off["velocity_enu"][0]) > 0.5 or abs(telem_off["velocity_enu"][1]) > 0.5
+
+    # 2. Defense ON: IMU attack is isolated, drone holds stable hover
+    mgr_on = SystemStateManager()
+    mgr_on.flight_phase = "CRUISE"
+    mgr_on.is_airborne = True
+    mgr_on.drone_pos = np.array([0.0, 0.0, 12.0])
+    mgr_on.drone_vel = np.array([0.0, 0.0, 0.0])
+    mgr_on.toggle_defense(enabled=True)
+    mgr_on.active_attack = {"attack_type": "imu_manipulation", "magnitude": 2.5, "duration_sec": 20.0}
+    mgr_on.attack_start_time = mgr_on.start_time
+
+    for _ in range(10):
+        mgr_on.step_simulation(dt=0.1)
+
+    telem_on = mgr_on.get_latest_telemetry()
+    assert telem_on["defense_enabled"] is True
+    assert "imu" in telem_on["isolated_sensors"]
+    assert "imu" not in telem_on["active_sensors"]
+
+
+def test_lidar_attack_altitude_hunting_when_defense_off_vs_on():
+    # 1. Defense OFF: LiDAR attack forces altitude surge/hunting
+    mgr_off = SystemStateManager()
+    mgr_off.flight_phase = "CRUISE"
+    mgr_off.is_airborne = True
+    mgr_off.drone_pos = np.array([0.0, 0.0, 12.0])
+    mgr_off.drone_vel = np.array([0.0, 0.0, 0.0])
+    mgr_off.toggle_defense(enabled=False)
+    mgr_off.active_attack = {"attack_type": "lidar_corruption", "magnitude": 7.0, "duration_sec": 20.0}
+    mgr_off.attack_start_time = mgr_off.start_time
+
+    for _ in range(10):
+        mgr_off.step_simulation(dt=0.1)
+
+    telem_off = mgr_off.get_latest_telemetry()
+    assert telem_off["defense_enabled"] is False
+    assert telem_off["is_attack_active"] is True
+    # Altitude or vertical climb speed must reflect the unmitigated laser tamper
+    assert telem_off["altitude_m"] > 12.3 or abs(telem_off["velocity_enu"][2]) > 0.5
+
+    # 2. Defense ON: LiDAR attack is isolated, altitude is smoothly maintained
+    mgr_on = SystemStateManager()
+    mgr_on.flight_phase = "CRUISE"
+    mgr_on.is_airborne = True
+    mgr_on.drone_pos = np.array([0.0, 0.0, 12.0])
+    mgr_on.drone_vel = np.array([0.0, 0.0, 0.0])
+    mgr_on.toggle_defense(enabled=True)
+    mgr_on.active_attack = {"attack_type": "lidar_corruption", "magnitude": 7.0, "duration_sec": 20.0}
+    mgr_on.attack_start_time = mgr_on.start_time
+
+    for _ in range(10):
+        mgr_on.step_simulation(dt=0.1)
+
+    telem_on = mgr_on.get_latest_telemetry()
+    assert telem_on["defense_enabled"] is True
+    assert "lidar" in telem_on["isolated_sensors"]
+    assert "lidar" not in telem_on["active_sensors"]
+
+
+def test_multi_attack_when_defense_off_vs_on():
+    # 1. Defense OFF: Multi-attack causes simultaneous lateral & vertical divergence
+    mgr_off = SystemStateManager()
+    mgr_off.flight_phase = "CRUISE"
+    mgr_off.is_airborne = True
+    mgr_off.drone_pos = np.array([0.0, 0.0, 12.0])
+    mgr_off.drone_vel = np.array([0.0, 0.0, 0.0])
+    mgr_off.toggle_defense(enabled=False)
+    mgr_off.active_attack = {"attack_type": "multi_attack", "magnitude": 20.0, "duration_sec": 20.0}
+    mgr_off.attack_start_time = mgr_off.start_time
+
+    for _ in range(10):
+        mgr_off.step_simulation(dt=0.1)
+
+    telem_off = mgr_off.get_latest_telemetry()
+    assert telem_off["defense_enabled"] is False
+    assert telem_off["is_attack_active"] is True
+    assert len(telem_off["isolated_sensors"]) == 0
+
+    # 2. Defense ON: Multi-attack isolates all compromised sensors and triggers contingency
+    mgr_on = SystemStateManager()
+    mgr_on.flight_phase = "CRUISE"
+    mgr_on.is_airborne = True
+    mgr_on.drone_pos = np.array([0.0, 0.0, 12.0])
+    mgr_on.drone_vel = np.array([0.0, 0.0, 0.0])
+    mgr_on.toggle_defense(enabled=True)
+    mgr_on.active_attack = {"attack_type": "multi_attack", "magnitude": 20.0, "duration_sec": 20.0}
+    mgr_on.attack_start_time = mgr_on.start_time
+
+    for _ in range(10):
+        mgr_on.step_simulation(dt=0.1)
+
+    telem_on = mgr_on.get_latest_telemetry()
+    assert telem_on["defense_enabled"] is True
+    assert "gps" in telem_on["isolated_sensors"]
+    assert "imu" in telem_on["isolated_sensors"]
+    assert "lidar" in telem_on["isolated_sensors"]
+

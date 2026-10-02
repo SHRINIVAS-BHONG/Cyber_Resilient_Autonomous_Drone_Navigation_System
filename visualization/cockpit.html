@@ -2511,6 +2511,14 @@
       // Hide downward LiDAR cone when resting on ground or rooftop
       const isLandedState = (data.flight_phase === 'LANDED' || data.is_airborne === false);
       lidarCone.visible = !isLandedState;
+      const isLidarAttacked = (data.is_attack_active && (data.active_attack_type?.includes('lidar') || data.active_attack_type?.includes('multi')));
+      if (isLidarAttacked) {
+        lidarMat.color.setHex(0xef4444);
+        lidarMat.opacity = 0.45;
+      } else {
+        lidarMat.color.setHex(0x10b981);
+        lidarMat.opacity = 0.22;
+      }
 
       // Update Destination Beacon & Planned Trajectory
       const missionType = data.mission_type || "patrol";

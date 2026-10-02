@@ -526,6 +526,12 @@ class SystemStateManager:
         self.current_surface = surf_name
         self.target_touchdown_z = touchdown_z
 
+        # Determine guidance position used by the closed-loop flight controller
+        if hasattr(self, "ekf") and self.ekf is not None and not np.any(np.isnan(self.ekf.x[0:3])):
+            nav_pos = self.ekf.x[0:3].flatten()
+        else:
+            nav_pos = np.copy(self.drone_pos)
+
         if self.flight_phase == "LANDED":
             self.drone_pos[2] = touchdown_z
             self.drone_vel = np.array([0.0, 0.0, 0.0])
@@ -577,7 +583,7 @@ class SystemStateManager:
                 self.flight_phase = "RTL_LAND"
         elif self.flight_phase == "RTL_LAND":
             # Fly towards Base Alpha [0, 0] at rtl_altitude, then auto-land
-            diff_xy = np.array([0.0, 0.0]) - self.drone_pos[:2]
+            diff_xy = np.array([0.0, 0.0]) - nav_pos[:2]
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
             if dist_xy < 1.0:
                 # Aligned directly over Base Alpha helipad! Initiate precision vertical landing
@@ -585,7 +591,7 @@ class SystemStateManager:
                 self.flight_phase = "LANDING"
             else:
                 vel_dir_xy = diff_xy / (dist_xy + 1e-6)
-                speed = self.cruise_speed * self.resilience.speed_factor
+                speed = self.cruise_speed * (self.resilience.speed_factor if self.defense_enabled else 1.0)
                 self.drone_vel = np.array([vel_dir_xy[0] * speed, vel_dir_xy[1] * speed, 0.0])
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
                 self.drone_pos[2] = self.rtl_altitude
@@ -599,13 +605,13 @@ class SystemStateManager:
                 self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
                 self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
         elif self.flight_phase == "ROOFTOP_APPROACH":
-            # Navigate towards rooftop target coordinates at safe transit altitude
+            # Navigate towards rooftop target coordinates at safe transit altitude using estimated nav_pos
             target_xy = self.target_goal[:2] if self.target_goal is not None else np.array([0.0, 0.0])
-            diff_xy = target_xy - self.drone_pos[:2]
+            diff_xy = target_xy - nav_pos[:2]
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
             target_alt = self.target_goal[2] if self.target_goal is not None else self.cruise_altitude
 
-            alt_diff = target_alt - self.drone_pos[2]
+            alt_diff = target_alt - nav_pos[2]
             if abs(alt_diff) > 0.15:
                 self.drone_vel[2] = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
                 self.drone_pos[2] += self.drone_vel[2] * dt
@@ -613,12 +619,12 @@ class SystemStateManager:
                 self.drone_pos[2] = target_alt
                 self.drone_vel[2] = 0.0
 
-            if dist_xy < 1.0:
+            if dist_xy < 1.0 and abs(alt_diff) < 0.4:
                 # Aligned directly over rooftop landing zone! Switch to vertical precision landing
                 self.flight_phase = "LANDING"
             else:
                 vel_dir_xy = diff_xy / (dist_xy + 1e-6)
-                speed = self.cruise_speed * self.resilience.speed_factor
+                speed = self.cruise_speed * (self.resilience.speed_factor if self.defense_enabled else 1.0)
                 self.drone_vel[:2] = vel_dir_xy * speed
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
 
@@ -630,94 +636,132 @@ class SystemStateManager:
                 target_roll = float(np.clip(-turn_rate * 0.10, -5.0, 5.0))
                 self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
                 self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
-        # Determine guidance position used by the closed-loop flight controller
-        if hasattr(self, "ekf") and self.ekf is not None and not np.any(np.isnan(self.ekf.x[0:3])):
-            nav_pos = self.ekf.x[0:3].flatten()
-        else:
-            nav_pos = np.copy(self.drone_pos)
-
-        if attack_type == "multi_attack" and self.defense_enabled:
-            # Coordinated multi-sensor compromise triggers safe landing zone descent
-            target_wp = self.emergency_landing_zone
-            diff_xy = target_wp[:2] - self.drone_pos[:2]
-            dist_xy = math.hypot(diff_xy[0], diff_xy[1])
-            self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
-            self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
-            if dist_xy < 1.5:
-                # Hover and slow descent
-                self.drone_pos[2] = max(touchdown_z, self.drone_pos[2] - 0.7 * dt)
-                self.drone_vel = np.array([0.0, 0.0, -0.7 if self.drone_pos[2] > touchdown_z else 0.0])
-                if self.drone_pos[2] <= touchdown_z:
-                    self.flight_phase = "LANDED"
-                    self.is_airborne = False
-            else:
-                vel_dir_xy = diff_xy / (dist_xy + 1e-6)
-                self.drone_vel[:2] = vel_dir_xy * 2.0
-                self.drone_pos[:2] += self.drone_vel[:2] * dt
-        elif ("imu" in self.resilience.isolated_sensors) and self.defense_enabled:
-            # IMU manipulation -> Hold stable hover position at cruise altitude
-            self.drone_vel = np.array([0.0, 0.0, 0.0])
-            self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
-            self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
-            if self.drone_pos[2] < self.cruise_altitude:
-                self.drone_pos[2] = min(self.cruise_altitude, self.drone_pos[2] + 1.0 * dt)
-        else:
-            # Normal or Degraded Optical/LiDAR Cruise
-            target_wp = self.waypoints[self.current_wp_idx]
-            target_alt = float(target_wp[2]) if len(target_wp) > 2 else self.cruise_altitude
-
-            # Autonomous altitude control: uses nav_pos (the state estimated by EKF)
-            alt_diff = target_alt - nav_pos[2]
-            target_climb = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
-            climb_accel = (target_climb - self.drone_vel[2]) / 0.35
-            self.drone_vel[2] += np.clip(climb_accel, -4.0, 4.0) * dt
-            self.drone_pos[2] += self.drone_vel[2] * dt
-
-            # Autonomous waypoint guidance: computes error between target waypoint and estimated position
-            diff_xy = target_wp[:2] - nav_pos[:2]
-            dist_xy = math.hypot(diff_xy[0], diff_xy[1])
-            speed = self.cruise_speed * (self.resilience.speed_factor if self.defense_enabled else 1.0)
-
-            # Autopilot waypoint arrival check: uses nav_pos (what the autopilot believes)
-            nav_dist_to_wp = math.hypot(target_wp[0] - nav_pos[0], target_wp[1] - nav_pos[1])
-            is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
-            if nav_dist_to_wp < 1.8:
-                if self.mission_type == "target_point" and is_final_wp:
-                    # Precision hover at target goal coordinate
-                    self.drone_vel[:2] *= 0.85
-                    self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
-                    self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
+        elif self.flight_phase == "CRUISE" or self.flight_phase not in ["LANDED", "TAKEOFF", "LANDING", "RTL_CLIMB", "RTL_LAND", "ROOFTOP_APPROACH"]:
+            if attack_type == "multi_attack" and self.defense_enabled:
+                # DEFENSE ON: Coordinated multi-sensor compromise triggers safe landing zone descent
+                target_wp = self.emergency_landing_zone
+                diff_xy = target_wp[:2] - self.drone_pos[:2]
+                dist_xy = math.hypot(diff_xy[0], diff_xy[1])
+                self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+                self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
+                if dist_xy < 1.5:
+                    # Hover and slow descent
+                    self.drone_pos[2] = max(touchdown_z, self.drone_pos[2] - 0.7 * dt)
+                    self.drone_vel = np.array([0.0, 0.0, -0.7 if self.drone_pos[2] > touchdown_z else 0.0])
+                    if self.drone_pos[2] <= touchdown_z:
+                        self.flight_phase = "LANDED"
+                        self.is_airborne = False
                 else:
-                    self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
+                    vel_dir_xy = diff_xy / (dist_xy + 1e-6)
+                    self.drone_vel[:2] = vel_dir_xy * 2.0
+                    self.drone_pos[:2] += self.drone_vel[:2] * dt
+            elif ("imu" in self.resilience.isolated_sensors) and self.defense_enabled:
+                # DEFENSE ON: IMU manipulation -> Hold stable hover position at cruise altitude
+                self.drone_vel = np.array([0.0, 0.0, 0.0])
+                self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+                self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
+                if self.drone_pos[2] < self.cruise_altitude:
+                    self.drone_pos[2] = min(self.cruise_altitude, self.drone_pos[2] + 1.0 * dt)
             else:
-                vel_dir_xy = diff_xy / (dist_xy + 1e-6)
-                target_vel_xy = vel_dir_xy * speed
-                # Realistic quadcopter inertia & acceleration dynamics (motor response tau = 0.30s)
-                accel_cmd_xy = (target_vel_xy - self.drone_vel[:2]) / 0.30
-                accel_cmd_xy = np.clip(accel_cmd_xy, -5.5, 5.5)
-                self.drone_vel[:2] += accel_cmd_xy * dt
-                self.drone_pos[:2] += self.drone_vel[:2] * dt
+                # Normal or Degraded Optical/LiDAR Cruise (or unmitigated attack with defense disabled)
+                target_wp = self.waypoints[self.current_wp_idx]
+                target_alt = float(target_wp[2]) if len(target_wp) > 2 else self.cruise_altitude
 
-                # Authentic Quadcopter Dynamic Attitude (Aviation Heading & Coordinated Bank)
-                curr_horiz_speed = float(math.hypot(self.drone_vel[0], self.drone_vel[1]))
-                target_yaw = float(math.degrees(math.atan2(self.drone_vel[0] + 1e-6, self.drone_vel[1] + 1e-6)) % 360)
-                yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
-                turn_rate = float(np.clip(yaw_diff * 3.5, -45.0, 45.0))
-                self.yaw_deg = float((self.yaw_deg + turn_rate * dt) % 360)
+                # Autonomous altitude control: uses nav_pos (the state estimated by EKF)
+                alt_diff = target_alt - nav_pos[2]
+                target_climb = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
+                climb_accel = (target_climb - self.drone_vel[2]) / 0.35
+                self.drone_vel[2] += np.clip(climb_accel, -4.0, 4.0) * dt
+                self.drone_pos[2] += self.drone_vel[2] * dt
 
-                target_pitch = float(np.clip(curr_horiz_speed * 0.70, 0.0, 4.2))
-                target_roll = float(np.clip(-turn_rate * 0.12, -6.5, 6.5))
+                # Autonomous waypoint guidance: computes error between target waypoint and estimated position
+                diff_xy = target_wp[:2] - nav_pos[:2]
+                dist_xy = math.hypot(diff_xy[0], diff_xy[1])
+                speed = self.cruise_speed * (self.resilience.speed_factor if self.defense_enabled else 1.0)
 
-                # Real acoustic resonance / gyro bias attitude perturbation when IMU attack active & defense OFF
-                elapsed = max(0.0, now - (self.attack_start_time or now))
-                if is_attack_active and ("imu" in attack_type) and (not self.defense_enabled):
-                    wobble_roll = math.sin(14.0 * elapsed) * 6.5
-                    wobble_pitch = math.cos(10.5 * elapsed) * 5.0
-                    self.pitch_deg += (target_pitch + wobble_pitch - self.pitch_deg) * min(1.0, 10.0 * dt)
-                    self.roll_deg += (target_roll + wobble_roll - self.roll_deg) * min(1.0, 10.0 * dt)
+                # Autopilot waypoint arrival check: uses nav_pos (what the autopilot believes)
+                nav_dist_to_wp = math.hypot(target_wp[0] - nav_pos[0], target_wp[1] - nav_pos[1])
+                is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
+                if nav_dist_to_wp < 1.8:
+                    if self.mission_type == "target_point" and is_final_wp:
+                        # Precision hover at target goal coordinate
+                        self.drone_vel[:2] *= 0.85
+                        self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
+                        self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
+                    else:
+                        self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
                 else:
+                    vel_dir_xy = diff_xy / (dist_xy + 1e-6)
+                    target_vel_xy = vel_dir_xy * speed
+                    # Realistic quadcopter inertia & acceleration dynamics (motor response tau = 0.30s)
+                    accel_cmd_xy = (target_vel_xy - self.drone_vel[:2]) / 0.30
+                    accel_cmd_xy = np.clip(accel_cmd_xy, -5.5, 5.5)
+                    self.drone_vel[:2] += accel_cmd_xy * dt
+                    self.drone_pos[:2] += self.drone_vel[:2] * dt
+
+                    # Authentic Quadcopter Dynamic Attitude (Aviation Heading & Coordinated Bank)
+                    curr_horiz_speed = float(math.hypot(self.drone_vel[0], self.drone_vel[1]))
+                    target_yaw = float(math.degrees(math.atan2(self.drone_vel[0] + 1e-6, self.drone_vel[1] + 1e-6)) % 360)
+                    yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
+                    turn_rate = float(np.clip(yaw_diff * 3.5, -45.0, 45.0))
+                    self.yaw_deg = float((self.yaw_deg + turn_rate * dt) % 360)
+
+                    target_pitch = float(np.clip(curr_horiz_speed * 0.70, 0.0, 4.2))
+                    target_roll = float(np.clip(-turn_rate * 0.12, -6.5, 6.5))
                     self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
                     self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
+
+        # -------------------------------------------------------------
+        # AUTHENTIC ADVERSARIAL SENSOR INJECTION DYNAMICS (DEFENSE: OFF)
+        # -------------------------------------------------------------
+        # When cyber resilience is bypassed, physical quadcopter dynamics succumb to spoofed/corrupted inputs
+        if is_attack_active and (not self.defense_enabled) and self.is_airborne and self.flight_phase not in ["LANDED"]:
+            elapsed = max(now - (self.attack_start_time or now), getattr(self, "attack_sim_elapsed", 0.0))
+
+            if "imu" in attack_type:
+                # Real MEMS accelerometer bias & acoustic resonance:
+                # Autopilot integrates false phantom acceleration, commanding reverse tilt
+                # that physically accelerates the drone sideways/backwards off course at >2.5 m/s^2
+                imu_fault_ax = -(attack_mag * 0.85) + math.sin(2.0 * math.pi * 9.8 * elapsed) * 2.8
+                imu_fault_ay = +(attack_mag * 0.70) + math.cos(2.0 * math.pi * 9.8 * elapsed) * 2.8
+                self.drone_vel[0] += imu_fault_ax * dt
+                self.drone_vel[1] += imu_fault_ay * dt
+                self.drone_pos[:2] += self.drone_vel[:2] * dt
+                # Violent attitude banking and oscillation (acoustic resonance harmonic)
+                self.roll_deg += math.sin(14.0 * elapsed) * 16.0 * min(1.0, 12.0 * dt)
+                self.pitch_deg += math.cos(10.5 * elapsed) * 12.0 * min(1.0, 12.0 * dt)
+
+            elif "lidar" in attack_type:
+                # Real laser pulse reflection tampering / optical jamming:
+                # Falsified range tricks altitude control loop into believing the aircraft is dangerously low;
+                # autopilot commands maximum climb, causing massive altitude surge & violent vertical hunting
+                surge_alt_err = attack_mag * 0.8 + 2.5 * math.sin(2.5 * elapsed)
+                target_climb_speed = float(np.clip(surge_alt_err * 1.5, -self.descent_speed * 1.5, self.climb_speed * 2.2))
+                self.drone_vel[2] += (target_climb_speed - self.drone_vel[2]) * min(1.0, 6.0 * dt)
+                self.drone_pos[2] += self.drone_vel[2] * dt
+                self.pitch_deg += math.sin(4.0 * elapsed) * 5.0 * min(1.0, 6.0 * dt)
+
+            elif "multi" in attack_type:
+                # Coordinated Multi-Vector Compromise:
+                # Simultaneous lateral GPS pull-off + lateral IMU thrust divergence + vertical LiDAR hunting
+                curr_wp = self.waypoints[self.current_wp_idx]
+                prev_wp = self.waypoints[(self.current_wp_idx - 1) % len(self.waypoints)]
+                corridor_vec = curr_wp[:2] - prev_wp[:2]
+                corridor_len = math.hypot(corridor_vec[0], corridor_vec[1])
+                drift_unit_xy = np.array([-corridor_vec[1], corridor_vec[0]]) / (corridor_len + 1e-6)
+
+                multi_drift_ax = (drift_unit_xy[0] * 3.5) - (attack_mag * 0.50)
+                multi_drift_ay = (drift_unit_xy[1] * 3.5) + (attack_mag * 0.45)
+                self.drone_vel[0] += multi_drift_ax * dt
+                self.drone_vel[1] += multi_drift_ay * dt
+                self.drone_pos[:2] += self.drone_vel[:2] * dt
+
+                surge_alt_err = 6.0 + 3.0 * math.sin(3.0 * elapsed)
+                self.drone_vel[2] += (surge_alt_err - self.drone_vel[2]) * min(1.0, 5.0 * dt)
+                self.drone_pos[2] += self.drone_vel[2] * dt
+
+                self.roll_deg += math.sin(16.0 * elapsed) * 15.0 * min(1.0, 10.0 * dt)
+                self.pitch_deg += math.cos(12.0 * elapsed) * 12.0 * min(1.0, 10.0 * dt)
 
         # Active Obstacle Awareness, Physical Boundary Enforcement & Realistic Overflight
         if self.is_airborne and self.flight_phase not in ["LANDED"]:
@@ -859,16 +903,12 @@ class SystemStateManager:
             det_res = self.detector.process_sensor_residual(sensor_name="gps", nis=gps_nis)
             res_policy = self.resilience.update_sensor_residual(sensor_name="gps", nis=gps_nis)
 
-            if is_attack_active and "imu" in attack_type:
+            if is_attack_active and ("imu" in attack_type or "multi" in attack_type):
                 imu_nis = float(np.linalg.norm(imu_accel - np.array([0.0, 0.0, 9.80665]))**2 / 0.05)
                 self.detector.process_sensor_residual("imu", imu_nis)
                 res_policy = self.resilience.update_sensor_residual("imu", imu_nis, gate_threshold=8.0)
-            elif is_attack_active and "lidar" in attack_type:
-                lidar_nis = float(((lidar_z - true_pos[2])**2) / 0.09)
-                self.detector.process_sensor_residual("lidar", lidar_nis)
-                res_policy = self.resilience.update_sensor_residual("lidar", lidar_nis, gate_threshold=6.63)
-            elif is_attack_active and "multi" in attack_type:
-                lidar_nis = 28.5
+            if is_attack_active and ("lidar" in attack_type or "multi" in attack_type):
+                lidar_nis = float(((lidar_z - true_pos[2])**2) / 0.09) if "lidar" in attack_type else 28.5
                 self.detector.process_sensor_residual("lidar", lidar_nis)
                 res_policy = self.resilience.update_sensor_residual("lidar", lidar_nis, gate_threshold=6.63)
 
