@@ -2601,22 +2601,32 @@
 
       if (!isDefenseEnabled) {
         // UNPROTECTED / DEFENSE BYPASSED MODE
-        if (!wasUnderAttack) playTacticalTone('attack');
-        badge.className = 'mode-indicator attack';
-        badge.style.background = 'rgba(220, 38, 38, 0.35)';
-        badge.style.borderColor = '#ef4444';
-        badge.style.color = '#fca5a5';
-        modeTxt.innerText = 'DEFENSE_OFF (UNPROTECTED)';
-        alertBanner.style.display = 'flex';
-        alertBanner.style.background = 'linear-gradient(90deg, rgba(153, 27, 27, 0.96), rgba(220, 38, 38, 0.96), rgba(153, 27, 27, 0.96))';
-        alertBanner.style.border = '1px solid rgba(239, 68, 68, 0.9)';
-        alertBanner.style.boxShadow = '0 0 35px rgba(220, 38, 38, 0.9)';
+        if (isUnderActiveAttack) {
+          if (!wasUnderAttack) playTacticalTone('attack');
+          badge.className = 'mode-indicator attack';
+          badge.style.background = 'rgba(220, 38, 38, 0.35)';
+          badge.style.borderColor = '#ef4444';
+          badge.style.color = '#fca5a5';
+          modeTxt.innerText = 'DEFENSE_OFF (ATTACK ACTIVE)';
+          alertBanner.style.display = 'flex';
+          alertBanner.style.background = 'linear-gradient(90deg, rgba(153, 27, 27, 0.96), rgba(220, 38, 38, 0.96), rgba(153, 27, 27, 0.96))';
+          alertBanner.style.border = '1px solid rgba(239, 68, 68, 0.9)';
+          alertBanner.style.boxShadow = '0 0 35px rgba(220, 38, 38, 0.9)';
 
-        // Calculate live corridor deviation distance
-        const crossTrackErr = Math.hypot(rawGps[0] - pos[0], rawGps[1] - pos[1]);
-        const devDistStr = crossTrackErr > 0.5 ? `${crossTrackErr.toFixed(1)}m` : '25.0m';
+          // Calculate live corridor deviation distance
+          const crossTrackErr = Math.hypot(rawGps[0] - pos[0], rawGps[1] - pos[1]);
+          const devDistStr = crossTrackErr > 0.5 ? `${crossTrackErr.toFixed(1)}m` : '25.0m';
 
-        alertTxt.innerHTML = `⚠️ <strong>DEFENSE: OFF (BYPASSED)</strong> — Contested Electronic Warfare Ingestion: Real GPS Carrier Walk-Off pulling aircraft <b>${devDistStr}</b> off corridor into danger! <button onclick="toggleDefense(true)" style="background:#10b981; color:#fff; border:none; padding:4px 12px; border-radius:14px; font-weight:800; cursor:pointer; margin-left:12px; font-family:'Outfit', sans-serif;">🛡️ ENGAGE DEFENSE (D)</button>`;
+          alertTxt.innerHTML = `⚠️ <strong>DEFENSE: OFF + ${attackLabel} ACTIVE:</strong> Unprotected EKF Ingestion! Drone Veering <b>${devDistStr}</b> Off-Corridor! <button onclick="toggleDefense(true)" style="background:#10b981; color:#fff; border:none; padding:4px 12px; border-radius:14px; font-weight:800; cursor:pointer; margin-left:12px; font-family:'Outfit', sans-serif;">🛡️ ENGAGE DEFENSE (D)</button>`;
+        } else {
+          // Defense OFF + Attack OFF: Nominal flight path, no attack in progress
+          badge.className = 'mode-indicator';
+          badge.style.background = 'rgba(239, 68, 68, 0.16)';
+          badge.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+          badge.style.color = '#fca5a5';
+          modeTxt.innerText = 'DEFENSE_OFF (NOMINAL)';
+          alertBanner.style.display = 'none';
+        }
       } else {
         // RESILIENT DEFENSE ACTIVE MODE
         if (isUnderActiveAttack) {

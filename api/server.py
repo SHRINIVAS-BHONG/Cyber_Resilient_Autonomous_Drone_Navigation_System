@@ -316,16 +316,6 @@ class SystemStateManager:
                 self.resilience.sensor_trust[s] = 1.0
             self.detector.compromised_sensors.clear()
             self.detector.current_state = DetectionState.NORMAL
-            # In contested airspace, disabling defense exposes vehicle to real GPS walk-off spoofing
-            if self.active_attack is None:
-                self.active_attack = {
-                    "attack_type": "gps_spoofing",
-                    "magnitude": 25.0,
-                    "duration_sec": 120.0,
-                    "target_sensor": "gps"
-                }
-                self.attack_start_time = time.time()
-                self.attack_sim_elapsed = 0.0
 
         return self.defense_enabled
 
@@ -893,10 +883,10 @@ class SystemStateManager:
             if "lidar" not in res_policy["isolated_sensors"]:
                 self.ekf.update_lidar(lidar_z, reject_anomaly=False)
         else:
-            # DEFENSE BYPASSED / DISABLED: Ingest raw attacked sensors directly into EKF without rejection
-            det_res = {"state": "DEFENSE_OFF", "consecutive_anomalies": 0}
+            # DEFENSE BYPASSED / DISABLED: Ingest raw sensors directly into EKF without rejection
+            det_res = {"state": "DEFENSE_OFF" if is_attack_active else "NORMAL", "consecutive_anomalies": 0}
             res_policy = {
-                "navigation_mode": "DEFENSE_DISABLED",
+                "navigation_mode": "DEFENSE_DISABLED" if is_attack_active else "NORMAL_MISSION",
                 "active_sensors": ["gps", "imu", "lidar", "vision_pose"],
                 "isolated_sensors": [],
                 "trust_scores": {"gps": 1.0, "imu": 1.0, "lidar": 1.0, "vision_pose": 1.0},
@@ -974,13 +964,13 @@ class SystemStateManager:
             "yaw_deg": round(self.yaw_deg, 1),
             "raw_gps_enu": [round(float(v), 3) for v in gps_meas],
             "gps_nis": round(gps_nis, 2),
-            "chi2_attack_state": "DEFENSE_OFF" if not self.defense_enabled else chi2_state,
+            "chi2_attack_state": ("DEFENSE_OFF" if is_attack_active else "NORMAL") if not self.defense_enabled else chi2_state,
             "is_attack_active": is_attack_active,
             "active_attack_type": attack_type if is_attack_active else "none",
             "active_attack_mag": round(attack_mag, 2) if is_attack_active else 0.0,
-            "ml_predicted_class": "DEFENSE_OFF" if not self.defense_enabled else ml_label,
-            "ml_confidence": 0.0 if not self.defense_enabled else round(ml_confidence, 3),
-            "navigation_mode": "DEFENSE_DISABLED" if not self.defense_enabled else res_policy["navigation_mode"],
+            "ml_predicted_class": (ml_label if is_attack_active else "NORMAL") if not self.defense_enabled else ml_label,
+            "ml_confidence": (round(ml_confidence, 3) if is_attack_active else 0.99) if not self.defense_enabled else round(ml_confidence, 3),
+            "navigation_mode": ("DEFENSE_DISABLED" if is_attack_active else "NORMAL_MISSION") if not self.defense_enabled else res_policy["navigation_mode"],
             "active_sensors": res_policy["active_sensors"],
             "isolated_sensors": res_policy["isolated_sensors"],
             "sensor_trust": {k: round(float(v), 2) for k, v in res_policy["trust_scores"].items()},

@@ -43,6 +43,23 @@ def test_defense_toggle_transitions():
     assert mgr.defense_enabled is False
 
 
+def test_defense_disabled_nominal_without_attack():
+    mgr = SystemStateManager()
+    mgr.toggle_defense(enabled=False)
+    assert mgr.active_attack is None
+
+    # Step simulation without any attack
+    for _ in range(5):
+        mgr.step_simulation(dt=0.1)
+
+    telem = mgr.get_latest_telemetry()
+    assert telem["defense_enabled"] is False
+    assert telem["is_attack_active"] is False
+    assert telem["navigation_mode"] == "NORMAL_MISSION"
+    assert telem["chi2_attack_state"] == "NORMAL"
+    assert len(telem["isolated_sensors"]) == 0
+
+
 def test_defense_disabled_unprotected_ingestion():
     mgr = SystemStateManager()
     mgr.toggle_defense(enabled=False)
@@ -60,6 +77,7 @@ def test_defense_disabled_unprotected_ingestion():
 
     telem = mgr.get_latest_telemetry()
     assert telem["defense_enabled"] is False
+    assert telem["is_attack_active"] is True
     assert telem["navigation_mode"] == "DEFENSE_DISABLED"
     assert len(telem["isolated_sensors"]) == 0
     assert "gps" in telem["active_sensors"]
