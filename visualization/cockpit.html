@@ -168,6 +168,52 @@
       box-shadow: 0 0 6px currentColor;
     }
 
+    /* Real-Time Cyber Defense Toggle Button */
+    .defense-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      padding: 5px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      white-space: nowrap;
+    }
+    .defense-btn.active {
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(16, 185, 129, 0.65);
+      color: #34d399;
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
+    }
+    .defense-btn.active:hover {
+      background: rgba(16, 185, 129, 0.32);
+      border-color: #10b981;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.65);
+      transform: translateY(-1px);
+    }
+    .defense-btn.disabled {
+      background: rgba(239, 68, 68, 0.22);
+      border: 1px solid rgba(239, 68, 68, 0.85);
+      color: #fca5a5;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.5);
+      animation: pulseDefenseOff 1.2s infinite alternate;
+    }
+    .defense-btn.disabled:hover {
+      background: rgba(239, 68, 68, 0.35);
+      border-color: #ef4444;
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.8);
+      transform: translateY(-1px);
+    }
+    @keyframes pulseDefenseOff {
+      0% { box-shadow: 0 0 6px rgba(239, 68, 68, 0.3); }
+      100% { box-shadow: 0 0 22px rgba(239, 68, 68, 0.75); }
+    }
+
     /* Attack Notification Banner */
     .attack-alert-banner {
       display: none;
@@ -853,6 +899,10 @@
       </div>
 
       <div style="display: flex; align-items: center; gap: 6px;">
+        <button class="btn hud-interactive defense-btn active" id="btn-defense-toggle" onclick="toggleDefense()" title="Toggle Real-Time Autonomous Cyber Defense (Hotkey: D)">
+          <span id="defense-btn-icon">🛡️</span>
+          <span id="defense-btn-text">DEFENSE: ON</span>
+        </button>
         <button class="btn btn-view hud-interactive" id="btn-zen" onclick="toggleZenMode()" title="Zen Mode: Hide HUD for pure 3D flight view (Hotkeys: Z or Tab)" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; background: rgba(56,189,248,0.12);">👁️ ZEN</button>
         <button class="btn btn-view hud-interactive" onclick="toggleSettingsModal()" title="System Configuration & Dynamics" style="border-color: rgba(245,158,11,0.4); color: #f59e0b; background: rgba(245,158,11,0.12);">⚙️ CONFIG</button>
         <button class="btn btn-view hud-interactive" onclick="toggleBenchmarksModal()" title="Academic Proof & Verification Specs" style="border-color: rgba(139,92,246,0.4); color: #c084fc; background: rgba(139,92,246,0.12);">📊 SPECS</button>
@@ -1091,6 +1141,17 @@
               <span class="toggle-slider"></span>
             </label>
           </div>
+
+          <div class="setting-toggle-row">
+            <div>
+              <div class="setting-title">Autonomous Cyber Resilience Pipeline</div>
+              <div class="setting-desc">Active statistical Chi-Square gating and ML sensor quarantine.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="cfg-defense-enabled" checked onchange="toggleDefense(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
 
         <!-- Tab 4: Audio & Cockpit Feedback -->
@@ -1298,6 +1359,28 @@
           <span style="color: #fca5a5;">⚡ CYBER INJECTION ATTACK SUITE</span>
           <button class="modal-close-btn" style="width: 20px; height: 20px; font-size: 0.75rem;" onclick="closeAllPopovers()">✕</button>
         </div>
+
+        <!-- Master Defense State Control -->
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div>
+              <div style="font-size: 0.76rem; font-weight: 700; color: #f1f5f9; display: flex; align-items: center; gap: 6px;">
+                <span id="popover-defense-icon">🛡️</span>
+                <span>CYBER RESILIENCE PIPELINE</span>
+              </div>
+              <div style="font-size: 0.63rem; color: var(--text-secondary); margin-top: 2px;" id="popover-defense-desc">
+                Chi-Square Residual Gating & ML Isolation [ACTIVE]
+              </div>
+            </div>
+            <button class="defense-btn active" id="popover-defense-btn" onclick="toggleDefense()" style="font-size: 0.68rem; padding: 4px 10px;">
+              DEFENSE: ON
+            </button>
+          </div>
+          <div style="margin-top: 6px; font-size: 0.63rem; color: #94a3b8; line-height: 1.35;">
+            <b style="color: #38bdf8;">Comparative Experiment:</b> When <b>OFF</b>, spoofed sensor inputs flow unfiltered into the EKF, causing the physical drone to steer off-course. When <b>ON</b>, attacks are quarantined and safe navigation is maintained. Press <b style="color: #f59e0b;">'D'</b> to toggle.
+          </div>
+        </div>
+
         <div class="popover-grid">
           <button class="dock-btn dock-btn-attack" onclick="triggerAttack('gps_spoofing', 25.0); closeAllPopovers();">🛰️ GPS Spoof (+25m)</button>
           <button class="dock-btn dock-btn-attack" onclick="triggerAttack('imu_manipulation', 2.5); closeAllPopovers();">🎯 IMU Bias (+2.5 m/s²)</button>
@@ -2485,8 +2568,13 @@
       // An attack is ONLY active if explicitly injected in backend, confirmed by statistical FSM, or classified as an attack vector by ML
       const isAttackActive = Boolean(data.is_attack_active);
       const isAttackConfirmed = (data.chi2_attack_state === "ATTACK_CONFIRMED" || data.chi2_attack_state === "CONTAINMENT");
-      const isMlAttack = (mlClass !== "NORMAL" && mlClass !== "UNKNOWN");
+      const isMlAttack = (mlClass !== "NORMAL" && mlClass !== "UNKNOWN" && mlClass !== "DEFENSE_OFF");
       const hasIsolatedSensors = Array.isArray(data.isolated_sensors) && data.isolated_sensors.length > 0;
+
+      // Sync Defense State from Telemetry
+      if (data.defense_enabled !== undefined && data.defense_enabled !== isDefenseEnabled) {
+        updateDefenseUI(data.defense_enabled);
+      }
 
       const isUnderActiveAttack = isAttackActive || isAttackConfirmed || isMlAttack;
       const isDegraded = (navMode !== "NORMAL_MISSION") || hasIsolatedSensors;
@@ -2502,40 +2590,63 @@
         }
       }
 
-      if (isUnderActiveAttack) {
-        if (!wasUnderAttack) playTacticalTone('attack');
-        badge.className = 'mode-indicator attack';
-        badge.style.background = '';
-        badge.style.borderColor = '';
-        badge.style.color = '';
-        alertBanner.style.display = 'flex';
-        alertBanner.style.background = 'rgba(239, 68, 68, 0.92)';
+      let attackLabel = 'CYBER ANOMALY';
+      if (isMlAttack) {
+        attackLabel = mlClass.replace(/_/g, ' ');
+      } else if (isAttackActive && data.active_attack_type && data.active_attack_type !== 'none') {
+        attackLabel = data.active_attack_type.toUpperCase().replace(/_/g, ' ');
+      } else if (isAttackConfirmed) {
+        attackLabel = hasIsolatedSensors ? `${data.isolated_sensors.join('+').toUpperCase()} SPOOFING` : 'STATISTICAL TAMPERING';
+      }
 
-        let attackLabel = 'CYBER ANOMALY';
-        if (isMlAttack) {
-          attackLabel = mlClass.replace(/_/g, ' ');
-        } else if (isAttackActive && data.active_attack_type && data.active_attack_type !== 'none') {
-          attackLabel = data.active_attack_type.toUpperCase().replace(/_/g, ' ');
-        } else if (isAttackConfirmed) {
-          attackLabel = hasIsolatedSensors ? `${data.isolated_sensors.join('+').toUpperCase()} SPOOFING` : 'STATISTICAL TAMPERING';
+      if (!isDefenseEnabled) {
+        // UNPROTECTED / DEFENSE BYPASSED MODE
+        if (isUnderActiveAttack) {
+          if (!wasUnderAttack) playTacticalTone('attack');
+          badge.className = 'mode-indicator attack';
+          badge.style.background = 'rgba(239, 68, 68, 0.28)';
+          badge.style.borderColor = 'rgba(239, 68, 68, 0.9)';
+          badge.style.color = '#fca5a5';
+          alertBanner.style.display = 'flex';
+          alertBanner.style.background = 'rgba(220, 38, 38, 0.95)';
+          alertTxt.innerHTML = `⚠️ <b>DEFENSE OFF (BYPASSED):</b> ${attackLabel} Direct Ingestion into EKF! Drone Veering Off-Course! <span style="text-decoration: underline; cursor: pointer; margin-left: 8px; font-weight:800;" onclick="toggleDefense(true)">[PRESS 'D' TO ENGAGE DEFENSE]</span>`;
+        } else {
+          badge.className = 'mode-indicator';
+          badge.style.background = 'rgba(239, 68, 68, 0.16)';
+          badge.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+          badge.style.color = '#fca5a5';
+          modeTxt.innerText = 'DEFENSE_OFF (UNPROTECTED)';
+          alertBanner.style.display = 'none';
         }
-        const isolatedStr = hasIsolatedSensors ? ` • QUARANTINED: [${data.isolated_sensors.join(', ')}]` : '';
-        alertTxt.innerText = `🚨 CYBER-ATTACK DETECTED: ${attackLabel} (NIS: ${nisVal.toFixed(2)})` + isolatedStr + ` • RESILIENCE ACTIVE`;
-      } else if (isDegraded) {
-        badge.className = 'mode-indicator';
-        badge.style.background = 'rgba(245, 158, 11, 0.2)';
-        badge.style.borderColor = 'rgba(245, 158, 11, 0.6)';
-        badge.style.color = '#fcd34d';
-        alertBanner.style.display = 'flex';
-        alertBanner.style.background = 'rgba(245, 158, 11, 0.90)';
-        const isolatedSensors = hasIsolatedSensors ? data.isolated_sensors.join(', ') : 'None';
-        alertTxt.innerText = `🛡️ FAILSAFE ACTIVE: Mode: ${navMode} • Quarantined: [${isolatedSensors}] • Attack Ceased`;
       } else {
-        badge.className = 'mode-indicator';
-        badge.style.background = '';
-        badge.style.borderColor = '';
-        badge.style.color = '';
-        alertBanner.style.display = 'none';
+        // RESILIENT DEFENSE ACTIVE MODE
+        if (isUnderActiveAttack) {
+          if (!wasUnderAttack) playTacticalTone('attack');
+          badge.className = 'mode-indicator attack';
+          badge.style.background = '';
+          badge.style.borderColor = '';
+          badge.style.color = '';
+          alertBanner.style.display = 'flex';
+          alertBanner.style.background = 'rgba(16, 185, 129, 0.92)';
+
+          const isolatedStr = hasIsolatedSensors ? ` • QUARANTINED: [${data.isolated_sensors.join(', ')}]` : '';
+          alertTxt.innerText = `🛡️ CYBER-DEFENSE ACTIVE: ${attackLabel} (NIS: ${nisVal.toFixed(2)})` + isolatedStr + ` • RESILIENCE ACTIVE (STABLE ON COURSE)`;
+        } else if (isDegraded) {
+          badge.className = 'mode-indicator';
+          badge.style.background = 'rgba(245, 158, 11, 0.2)';
+          badge.style.borderColor = 'rgba(245, 158, 11, 0.6)';
+          badge.style.color = '#fcd34d';
+          alertBanner.style.display = 'flex';
+          alertBanner.style.background = 'rgba(245, 158, 11, 0.90)';
+          const isolatedSensors = hasIsolatedSensors ? data.isolated_sensors.join(', ') : 'None';
+          alertTxt.innerText = `🛡️ FAILSAFE ACTIVE: Mode: ${navMode} • Quarantined: [${isolatedSensors}] • Attack Ceased`;
+        } else {
+          badge.className = 'mode-indicator';
+          badge.style.background = '';
+          badge.style.borderColor = '';
+          badge.style.color = '';
+          alertBanner.style.display = 'none';
+        }
       }
       wasUnderAttack = isUnderActiveAttack;
 
@@ -2636,6 +2747,85 @@
         await fetch('/attack/clear', { method: 'POST' });
       } catch (e) {
         console.error("Attack clear error:", e);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Real-Time Cyber-Defense Pipeline Control (ON / OFF)
+    // -------------------------------------------------------------
+    let isDefenseEnabled = true;
+
+    async function toggleDefense(explicitState = null) {
+      playTacticalTone('click');
+      try {
+        let url = '/defense/toggle';
+        let opts = { method: 'POST' };
+        if (explicitState !== null) {
+          url = '/defense/set';
+          opts = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: Boolean(explicitState) })
+          };
+        }
+        const res = await fetch(url, opts);
+        if (res.ok) {
+          const data = await res.json();
+          updateDefenseUI(data.defense_enabled);
+          if (data.defense_enabled) {
+            showToast('🛡️ DEFENSE ACTIVE: Statistical Gating & ML Isolation Online');
+            playTacticalTone('confirm');
+          } else {
+            showToast('⚠️ DEFENSE DISABLED: Resilience Bypassed — System Vulnerable to Attacks!');
+            playTacticalTone('alert');
+          }
+        }
+      } catch (e) {
+        console.error("Defense toggle error:", e);
+        showToast('❌ Failed to toggle cyber defense');
+      }
+    }
+
+    function updateDefenseUI(enabled) {
+      isDefenseEnabled = Boolean(enabled);
+
+      const topBtn = document.getElementById('btn-defense-toggle');
+      const topBtnTxt = document.getElementById('defense-btn-text');
+      const topBtnIcon = document.getElementById('defense-btn-icon');
+      if (topBtn) {
+        if (isDefenseEnabled) {
+          topBtn.className = 'btn hud-interactive defense-btn active';
+          if (topBtnTxt) topBtnTxt.innerText = 'DEFENSE: ON';
+          if (topBtnIcon) topBtnIcon.innerText = '🛡️';
+          topBtn.title = 'Cyber Defense ACTIVE (Chi-Square & ML Isolation Online) — Click or Press D to Disable';
+        } else {
+          topBtn.className = 'btn hud-interactive defense-btn disabled';
+          if (topBtnTxt) topBtnTxt.innerText = 'DEFENSE: OFF';
+          if (topBtnIcon) topBtnIcon.innerText = '🛡️❌';
+          topBtn.title = 'Cyber Defense DISABLED (Unprotected Baseline / Raw Ingestion) — Click or Press D to Enable';
+        }
+      }
+
+      const popoverBtn = document.getElementById('popover-defense-btn');
+      const popoverDesc = document.getElementById('popover-defense-desc');
+      const popoverIcon = document.getElementById('popover-defense-icon');
+      if (popoverBtn) {
+        if (isDefenseEnabled) {
+          popoverBtn.className = 'defense-btn active';
+          popoverBtn.innerText = 'DEFENSE: ON';
+          if (popoverDesc) popoverDesc.innerText = 'Chi-Square Residual Gating & ML Isolation [ACTIVE]';
+          if (popoverIcon) popoverIcon.innerText = '🛡️';
+        } else {
+          popoverBtn.className = 'defense-btn disabled';
+          popoverBtn.innerText = 'DEFENSE: OFF';
+          if (popoverDesc) popoverDesc.innerText = 'Resilience Pipeline BYPASSED (Raw Spoofed Ingestion) [VULNERABLE]';
+          if (popoverIcon) popoverIcon.innerText = '⚠️';
+        }
+      }
+
+      const cfgToggle = document.getElementById('cfg-defense-enabled');
+      if (cfgToggle) {
+        cfgToggle.checked = isDefenseEnabled;
       }
     }
 
@@ -2881,6 +3071,10 @@
           document.getElementById('cfg-auto-recovery').checked = cfg.auto_recovery_enabled ?? true;
           document.getElementById('cfg-audio-enabled').checked = cfg.audio_alerts_enabled ?? true;
           audioEnabled = cfg.audio_alerts_enabled ?? true;
+
+          if (cfg.defense_enabled !== undefined) {
+            updateDefenseUI(cfg.defense_enabled);
+          }
         }
       } catch (e) {
         console.error("Fetch settings error:", e);
@@ -2893,6 +3087,12 @@
         currentSettings.auto_recovery_enabled = document.getElementById('cfg-auto-recovery').checked;
         currentSettings.audio_alerts_enabled = document.getElementById('cfg-audio-enabled').checked;
         audioEnabled = currentSettings.audio_alerts_enabled;
+
+        const defElem = document.getElementById('cfg-defense-enabled');
+        if (defElem) {
+          currentSettings.defense_enabled = defElem.checked;
+          updateDefenseUI(currentSettings.defense_enabled);
+        }
 
         const res = await fetch('/settings', {
           method: 'POST',
@@ -2912,6 +3112,7 @@
 
     function resetSettingsDefaults() {
       const defaults = {
+        defense_enabled: true,
         cruise_altitude: 12.0,
         cruise_speed: 2.8,
         climb_speed: 1.8,
@@ -2950,6 +3151,7 @@
       document.getElementById('cfg-ground-effect').checked = true;
       document.getElementById('cfg-auto-recovery').checked = true;
       document.getElementById('cfg-audio-enabled').checked = true;
+      updateDefenseUI(true);
       audioEnabled = true;
       playTacticalTone('click');
       showToast("🔄 Settings reset to factory defaults");
@@ -2971,6 +3173,9 @@
       } else if (e.code === 'Space') {
         e.preventDefault();
         setCameraMode('track');
+      } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        toggleDefense();
       } else if (e.key === 'f' || e.key === 'F') {
         setCameraMode('goal');
       } else if (e.key === 'h' || e.key === 'H') {

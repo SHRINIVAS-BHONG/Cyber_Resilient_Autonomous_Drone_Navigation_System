@@ -25,6 +25,7 @@ if %errorlevel% equ 0 (
 :: 3. Check common Python 3.10 install directories
 if exist "%LOCALAPPDATA%\Programs\Python\Python310\python.exe" (
     echo [*] Found Python 3.10 in LocalAppData.
+    
     "%LOCALAPPDATA%\Programs\Python\Python310\python.exe" run.py
     goto end
 )

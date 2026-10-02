@@ -49,6 +49,7 @@ class AttackInjectionRequest(BaseModel):
 class VehicleHealthResponse(BaseModel):
     timestamp: str
     status: str
+    defense_enabled: bool = True
     navigation_mode: str
     speed_factor: float
     active_sensors: List[str]
@@ -74,6 +75,7 @@ class TelemetryIngestPacket(BaseModel):
 
 
 class SystemSettingsModel(BaseModel):
+    defense_enabled: bool = Field(default=True, description="Enable cyber-defense resilience pipeline")
     cruise_altitude: float = Field(default=15.0, ge=4.0, le=45.0, description="Nominal cruise altitude (meters)")
     cruise_speed: float = Field(default=4.5, ge=1.0, le=12.0, description="Nominal cruise horizontal speed (m/s)")
     climb_speed: float = Field(default=2.5, ge=0.5, le=6.0, description="Vertical climb speed (m/s)")
@@ -87,6 +89,10 @@ class SystemSettingsModel(BaseModel):
     recovery_threshold: float = Field(default=0.85, ge=0.5, le=0.98, description="Sensor trust threshold above which sensor is restored")
     auto_recovery_enabled: bool = Field(default=True, description="Auto-recover sensor trust when residual returns to normal")
     audio_alerts_enabled: bool = Field(default=True, description="Enable audio alerts for attacks and touchdown")
+
+
+class DefenseToggleRequest(BaseModel):
+    enabled: Optional[bool] = Field(default=None, description="Explicit boolean state for cyber defense, or omit to toggle")
 
 
 class SetDestinationRequest(BaseModel):
@@ -105,7 +111,9 @@ class RooftopLandingRequest(BaseModel):
 class TelemetryPacket(BaseModel):
     model_config = {"extra": "allow"}
     timestamp: str
+    defense_enabled: Optional[bool] = True
     position_enu: List[float]
+    estimated_pos_enu: Optional[List[float]] = None
     velocity_enu: List[float]
     yaw_deg: float
     raw_gps_enu: List[float]
@@ -152,6 +160,7 @@ class SystemStateManager:
         self.start_time = time.time()
 
         # System Settings & Dynamic Tuning
+        self.defense_enabled = True
         self.settings = SystemSettingsModel()
         self.cruise_altitude = self.settings.cruise_altitude
         self.cruise_speed = self.settings.cruise_speed
@@ -230,7 +239,9 @@ class SystemStateManager:
         # Telemetry State Buffer
         self.current_state: Dict = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "defense_enabled": self.defense_enabled,
             "position_enu": [0.0, 0.0, self.cruise_altitude],
+            "estimated_pos_enu": [0.0, 0.0, self.cruise_altitude],
             "velocity_enu": [0.0, 0.0, 0.0],
             "altitude_m": self.cruise_altitude,
             "altitude_agl_m": self.cruise_altitude,
@@ -269,6 +280,7 @@ class SystemStateManager:
     def apply_settings(self, new_settings: SystemSettingsModel):
         """Applies runtime flight and resilience parameters immediately."""
         self.settings = new_settings
+        self.defense_enabled = new_settings.defense_enabled
         self.cruise_altitude = new_settings.cruise_altitude
         self.cruise_speed = new_settings.cruise_speed
         self.climb_speed = new_settings.climb_speed
@@ -280,6 +292,31 @@ class SystemStateManager:
         self.detector.gate_threshold = new_settings.nis_gate_threshold
         self.resilience.quarantine_th = new_settings.quarantine_threshold
         self.resilience.recovery_th = new_settings.recovery_threshold
+
+    def toggle_defense(self, enabled: Optional[bool] = None) -> bool:
+        """Toggles or explicitly sets the autonomous cyber-defense resilience pipeline."""
+        if enabled is not None:
+            self.defense_enabled = bool(enabled)
+        else:
+            self.defense_enabled = not self.defense_enabled
+        self.settings.defense_enabled = self.defense_enabled
+
+        if self.defense_enabled:
+            # Re-activating defense: clear stale anomaly counters to evaluate fresh
+            for k in self.detector.suspicious_counters:
+                self.detector.suspicious_counters[k] = 0
+            if hasattr(self, "drone_pos") and hasattr(self, "ekf"):
+                self.ekf.x[0:3] = self.drone_pos.reshape(3, 1)
+                self.ekf.x[3:6] = self.drone_vel.reshape(3, 1)
+        else:
+            # Disabling defense: remove isolations so compromised data streams pass unfiltered
+            self.resilience.isolated_sensors.clear()
+            for s in ["gps", "imu", "lidar", "vision_pose"]:
+                self.resilience.sensor_trust[s] = 1.0
+            self.detector.compromised_sensors.clear()
+            self.detector.current_state = DetectionState.NORMAL
+
+        return self.defense_enabled
 
     def get_surface_profile(self, x: float, y: float) -> Tuple[float, str, bool]:
         """
@@ -586,7 +623,13 @@ class SystemStateManager:
                 target_roll = float(np.clip(-turn_rate * 0.10, -5.0, 5.0))
                 self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
                 self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
-        elif attack_type == "multi_attack":
+        # Determine guidance position used by the closed-loop flight controller
+        if hasattr(self, "ekf") and self.ekf is not None and not np.any(np.isnan(self.ekf.x[0:3])):
+            nav_pos = self.ekf.x[0:3].flatten()
+        else:
+            nav_pos = np.copy(self.drone_pos)
+
+        if attack_type == "multi_attack" and self.defense_enabled:
             # Coordinated multi-sensor compromise triggers safe landing zone descent
             target_wp = self.emergency_landing_zone
             diff_xy = target_wp[:2] - self.drone_pos[:2]
@@ -604,7 +647,7 @@ class SystemStateManager:
                 vel_dir_xy = diff_xy / (dist_xy + 1e-6)
                 self.drone_vel[:2] = vel_dir_xy * 2.0
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
-        elif "imu" in self.resilience.isolated_sensors:
+        elif ("imu" in self.resilience.isolated_sensors) and self.defense_enabled:
             # IMU manipulation -> Hold stable hover position at cruise altitude
             self.drone_vel = np.array([0.0, 0.0, 0.0])
             self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
@@ -617,7 +660,7 @@ class SystemStateManager:
             target_alt = float(target_wp[2]) if len(target_wp) > 2 else self.cruise_altitude
 
             # If recovering from landing or below target cruise altitude, climb vertically
-            alt_diff = target_alt - self.drone_pos[2]
+            alt_diff = target_alt - (nav_pos[2] if not self.defense_enabled else self.drone_pos[2])
             if abs(alt_diff) > 0.15:
                 climb_vel = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
                 self.drone_vel[2] = climb_vel
@@ -626,12 +669,14 @@ class SystemStateManager:
                 self.drone_pos[2] = target_alt
                 self.drone_vel[2] = 0.0
 
-            diff_xy = target_wp[:2] - self.drone_pos[:2]
+            # When defense is OFF, guidance steers using deceived nav_pos (causing drone to veer off-course)
+            diff_xy = target_wp[:2] - (nav_pos[:2] if not self.defense_enabled else self.drone_pos[:2])
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
-            speed = self.cruise_speed * self.resilience.speed_factor
+            speed = self.cruise_speed * (self.resilience.speed_factor if self.defense_enabled else 1.0)
 
+            check_dist = math.hypot(target_wp[0] - self.drone_pos[0], target_wp[1] - self.drone_pos[1])
             is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
-            if dist_xy < 1.5:
+            if check_dist < 2.0:
                 if self.mission_type == "target_point" and is_final_wp:
                     # Precision hover at target goal coordinate
                     self.drone_vel[:2] = np.array([0.0, 0.0])
@@ -729,7 +774,10 @@ class SystemStateManager:
                 lidar_z -= 8.0
 
         # 4. 10-DOF EKF IMU Prediction
-        used_accel = np.array([0.0, 0.0, 9.80665]) if "imu" in self.resilience.isolated_sensors else imu_accel
+        if self.defense_enabled and ("imu" in self.resilience.isolated_sensors):
+            used_accel = np.array([0.0, 0.0, 9.80665])
+        else:
+            used_accel = imu_accel
         self.ekf.predict(accel=used_accel, gyro_z=0.0, dt=dt)
 
         # 5. Extract GPS Innovation Residual & Evaluate Detector from Prior Prediction
@@ -743,31 +791,44 @@ class SystemStateManager:
         gps_norm_res = (y_pos.flatten() / np.sqrt(diag_S)).flatten()
 
         # 6. Statistical Chi-Square Residual Detector & Resilience Policy
-        det_res = self.detector.process_sensor_residual(sensor_name="gps", nis=gps_nis)
-        res_policy = self.resilience.update_sensor_residual(sensor_name="gps", nis=gps_nis)
+        if self.defense_enabled:
+            det_res = self.detector.process_sensor_residual(sensor_name="gps", nis=gps_nis)
+            res_policy = self.resilience.update_sensor_residual(sensor_name="gps", nis=gps_nis)
 
-        if is_attack_active and "imu" in attack_type:
-            imu_nis = float(np.linalg.norm(imu_accel - np.array([0.0, 0.0, 9.80665]))**2 / 0.05)
-            self.detector.process_sensor_residual("imu", imu_nis)
-            res_policy = self.resilience.update_sensor_residual("imu", imu_nis, gate_threshold=8.0)
-        elif is_attack_active and "lidar" in attack_type:
-            lidar_nis = float(((lidar_z - true_pos[2])**2) / 0.09)
-            self.detector.process_sensor_residual("lidar", lidar_nis)
-            res_policy = self.resilience.update_sensor_residual("lidar", lidar_nis, gate_threshold=6.63)
-        elif is_attack_active and "multi" in attack_type:
-            lidar_nis = 28.5
-            self.detector.process_sensor_residual("lidar", lidar_nis)
-            res_policy = self.resilience.update_sensor_residual("lidar", lidar_nis, gate_threshold=6.63)
+            if is_attack_active and "imu" in attack_type:
+                imu_nis = float(np.linalg.norm(imu_accel - np.array([0.0, 0.0, 9.80665]))**2 / 0.05)
+                self.detector.process_sensor_residual("imu", imu_nis)
+                res_policy = self.resilience.update_sensor_residual("imu", imu_nis, gate_threshold=8.0)
+            elif is_attack_active and "lidar" in attack_type:
+                lidar_nis = float(((lidar_z - true_pos[2])**2) / 0.09)
+                self.detector.process_sensor_residual("lidar", lidar_nis)
+                res_policy = self.resilience.update_sensor_residual("lidar", lidar_nis, gate_threshold=6.63)
+            elif is_attack_active and "multi" in attack_type:
+                lidar_nis = 28.5
+                self.detector.process_sensor_residual("lidar", lidar_nis)
+                res_policy = self.resilience.update_sensor_residual("lidar", lidar_nis, gate_threshold=6.63)
 
-        # 8. Sensor Fusion Reconfiguration
-        if "gps" in res_policy["isolated_sensors"]:
-            # Fallback to Optical Flow + LiDAR odometry
-            self.ekf.update_vision_pose(vision_pos, reject_anomaly=False)
-            self.ekf.x[3:6] = self.drone_vel.reshape(3, 1) + np.random.normal(0.0, 0.03, size=(3, 1))
+            # 8. Sensor Fusion Reconfiguration
+            if "gps" in res_policy["isolated_sensors"]:
+                # Fallback to Optical Flow + LiDAR odometry
+                self.ekf.update_vision_pose(vision_pos, reject_anomaly=False)
+                self.ekf.x[3:6] = self.drone_vel.reshape(3, 1) + np.random.normal(0.0, 0.03, size=(3, 1))
+            else:
+                self.ekf.update_gps(gps_meas, vel_meas=gps_vel_meas, reject_anomaly=True)
+
+            if "lidar" not in res_policy["isolated_sensors"]:
+                self.ekf.update_lidar(lidar_z, reject_anomaly=False)
         else:
-            self.ekf.update_gps(gps_meas, vel_meas=gps_vel_meas, reject_anomaly=True)
-
-        if "lidar" not in res_policy["isolated_sensors"]:
+            # DEFENSE BYPASSED / DISABLED: Ingest raw attacked sensors directly into EKF without rejection
+            det_res = {"state": "DEFENSE_OFF", "consecutive_anomalies": 0}
+            res_policy = {
+                "navigation_mode": "DEFENSE_DISABLED",
+                "active_sensors": ["gps", "imu", "lidar", "vision_pose"],
+                "isolated_sensors": [],
+                "trust_scores": {"gps": 1.0, "imu": 1.0, "lidar": 1.0, "vision_pose": 1.0},
+                "speed_factor": 1.0
+            }
+            self.ekf.update_gps(gps_meas, vel_meas=gps_vel_meas, reject_anomaly=False)
             self.ekf.update_lidar(lidar_z, reject_anomaly=False)
 
         est_state = self.ekf.get_state()
@@ -813,21 +874,23 @@ class SystemStateManager:
 
         # 10. Update Live Telemetry Packet Buffer
         chi2_state = det_res["state"] if isinstance(det_res["state"], str) else det_res["state"].value
-        g_speed = float(math.hypot(est_state["velocity"][0], est_state["velocity"][1]))
+        g_speed = float(math.hypot(self.drone_vel[0], self.drone_vel[1]))
 
         dist_to_goal = 0.0
         if self.target_goal is not None:
-            dist_to_goal = math.hypot(self.target_goal[0] - est_state["position"][0], self.target_goal[1] - est_state["position"][1])
+            dist_to_goal = math.hypot(self.target_goal[0] - self.drone_pos[0], self.target_goal[1] - self.drone_pos[1])
         else:
             cur_wp = self.waypoints[min(self.current_wp_idx, len(self.waypoints) - 1)]
-            dist_to_goal = math.hypot(cur_wp[0] - est_state["position"][0], cur_wp[1] - est_state["position"][1])
+            dist_to_goal = math.hypot(cur_wp[0] - self.drone_pos[0], cur_wp[1] - self.drone_pos[1])
 
         self.current_state = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "position_enu": [round(float(v), 3) for v in est_state["position"]],
-            "velocity_enu": [round(float(v), 3) for v in est_state["velocity"]],
-            "altitude_m": round(float(est_state["position"][2]), 2),
-            "altitude_agl_m": round(float(max(0.0, est_state["position"][2] - surf_elev)), 2),
+            "defense_enabled": self.defense_enabled,
+            "position_enu": [round(float(v), 3) for v in self.drone_pos],
+            "estimated_pos_enu": [round(float(v), 3) for v in est_state["position"]],
+            "velocity_enu": [round(float(v), 3) for v in self.drone_vel],
+            "altitude_m": round(float(self.drone_pos[2]), 2),
+            "altitude_agl_m": round(float(max(0.0, self.drone_pos[2] - surf_elev)), 2),
             "surface_name": surf_name,
             "surface_elevation_m": round(float(surf_elev), 2),
             "target_touchdown_z": round(float(self.target_touchdown_z), 2),
@@ -837,20 +900,20 @@ class SystemStateManager:
             "yaw_deg": round(self.yaw_deg, 1),
             "raw_gps_enu": [round(float(v), 3) for v in gps_meas],
             "gps_nis": round(gps_nis, 2),
-            "chi2_attack_state": chi2_state,
+            "chi2_attack_state": "DEFENSE_OFF" if not self.defense_enabled else chi2_state,
             "is_attack_active": is_attack_active,
             "active_attack_type": attack_type if is_attack_active else "none",
             "active_attack_mag": round(attack_mag, 2) if is_attack_active else 0.0,
-            "ml_predicted_class": ml_label,
-            "ml_confidence": round(ml_confidence, 3),
-            "navigation_mode": res_policy["navigation_mode"],
+            "ml_predicted_class": "DEFENSE_OFF" if not self.defense_enabled else ml_label,
+            "ml_confidence": 0.0 if not self.defense_enabled else round(ml_confidence, 3),
+            "navigation_mode": "DEFENSE_DISABLED" if not self.defense_enabled else res_policy["navigation_mode"],
             "active_sensors": res_policy["active_sensors"],
             "isolated_sensors": res_policy["isolated_sensors"],
             "sensor_trust": {k: round(float(v), 2) for k, v in res_policy["trust_scores"].items()},
             "current_waypoint": f"WP-{self.current_wp_idx + 1}/{len(self.waypoints)}",
             "battery_pct": round(max(15.0, 99.0 - 0.005 * (time.time() - self.start_time)), 1),
-            "lat_wgs84": round(37.774929 + est_state["position"][1] / 111319.5, 6),
-            "lon_wgs84": round(-122.419416 + est_state["position"][0] / (111319.5 * math.cos(math.radians(37.774929))), 6),
+            "lat_wgs84": round(37.774929 + self.drone_pos[1] / 111319.5, 6),
+            "lon_wgs84": round(-122.419416 + self.drone_pos[0] / (111319.5 * math.cos(math.radians(37.774929))), 6),
             "mission_type": self.mission_type,
             "target_goal": [round(float(v), 2) for v in self.target_goal] if self.target_goal is not None else None,
             "target_label": self.target_label,
@@ -943,10 +1006,13 @@ def get_cockpit_view(request: Request):
 @app.get("/health", response_model=VehicleHealthResponse, tags=["Health & Status"])
 def get_health():
     telem = state_manager.get_latest_telemetry()
-    is_degraded = telem["navigation_mode"] != "NORMAL_MISSION"
+    is_defense_active = telem.get("defense_enabled", True)
+    is_degraded = (telem["navigation_mode"] != "NORMAL_MISSION") or not is_defense_active
+    status_label = "DEFENSE_DISABLED" if not is_defense_active else ("ATTACK_CONTAINMENT" if is_degraded else "HEALTHY_NORMAL")
     return VehicleHealthResponse(
         timestamp=telem["timestamp"],
-        status="ATTACK_CONTAINMENT" if is_degraded else "HEALTHY_NORMAL",
+        status=status_label,
+        defense_enabled=is_defense_active,
         navigation_mode=telem["navigation_mode"],
         speed_factor=0.6 if is_degraded else 1.0,
         active_sensors=telem["active_sensors"],
@@ -954,6 +1020,38 @@ def get_health():
         sensor_trust=telem["sensor_trust"],
         is_degraded=is_degraded
     )
+
+
+@app.get("/defense/status", tags=["Cyber Defense"])
+def get_defense_status():
+    return {
+        "defense_enabled": state_manager.defense_enabled,
+        "status": "DEFENSE_ACTIVE" if state_manager.defense_enabled else "DEFENSE_DISABLED",
+        "navigation_mode": state_manager.current_state.get("navigation_mode", "NORMAL_MISSION"),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.post("/defense/toggle", tags=["Cyber Defense"])
+def toggle_defense_mode():
+    new_state = state_manager.toggle_defense()
+    return {
+        "defense_enabled": new_state,
+        "status": "DEFENSE_ACTIVE" if new_state else "DEFENSE_DISABLED",
+        "message": "Cyber defense resilience pipeline activated" if new_state else "Cyber defense disabled - system vulnerable to adversarial attacks",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.post("/defense/set", tags=["Cyber Defense"])
+def set_defense_mode(req: DefenseToggleRequest):
+    new_state = state_manager.toggle_defense(req.enabled)
+    return {
+        "defense_enabled": new_state,
+        "status": "DEFENSE_ACTIVE" if new_state else "DEFENSE_DISABLED",
+        "message": "Cyber defense resilience pipeline activated" if new_state else "Cyber defense disabled - system vulnerable to adversarial attacks",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 
 @app.get("/telemetry/latest", response_model=TelemetryPacket, tags=["Telemetry"])
