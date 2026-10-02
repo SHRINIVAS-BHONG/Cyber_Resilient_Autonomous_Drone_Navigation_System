@@ -13,7 +13,7 @@ import json
 import math
 from pathlib import Path
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Any, Union, Set, Callable
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
@@ -74,13 +74,13 @@ class TelemetryIngestPacket(BaseModel):
 
 
 class SystemSettingsModel(BaseModel):
-    cruise_altitude: float = Field(default=12.0, ge=4.0, le=35.0, description="Nominal cruise altitude (meters)")
-    cruise_speed: float = Field(default=2.8, ge=1.0, le=8.0, description="Nominal cruise horizontal speed (m/s)")
-    climb_speed: float = Field(default=1.8, ge=0.5, le=4.0, description="Vertical climb speed (m/s)")
-    descent_speed: float = Field(default=1.0, ge=0.4, le=3.0, description="Vertical descent speed during landing (m/s)")
-    rtl_altitude: float = Field(default=15.0, ge=8.0, le=40.0, description="Return-To-Launch clearance altitude (meters)")
-    overflight_clearance: float = Field(default=1.5, ge=0.8, le=5.0, description="Minimum clearance altitude above obstacles for overflight (meters)")
-    collision_margin: float = Field(default=1.8, ge=0.5, le=4.0, description="Horizontal safety buffer around physical obstacles (meters)")
+    cruise_altitude: float = Field(default=15.0, ge=4.0, le=45.0, description="Nominal cruise altitude (meters)")
+    cruise_speed: float = Field(default=4.5, ge=1.0, le=12.0, description="Nominal cruise horizontal speed (m/s)")
+    climb_speed: float = Field(default=2.5, ge=0.5, le=6.0, description="Vertical climb speed (m/s)")
+    descent_speed: float = Field(default=1.5, ge=0.4, le=4.0, description="Vertical descent speed during landing (m/s)")
+    rtl_altitude: float = Field(default=22.0, ge=8.0, le=50.0, description="Return-To-Launch clearance altitude (meters)")
+    overflight_clearance: float = Field(default=2.0, ge=0.8, le=8.0, description="Minimum clearance altitude above obstacles for overflight (meters)")
+    collision_margin: float = Field(default=2.5, ge=0.5, le=6.0, description="Horizontal safety buffer around physical obstacles (meters)")
     ground_effect_enabled: bool = Field(default=True, description="Enable realistic air-cushion deceleration near touchdown surface")
     nis_gate_threshold: float = Field(default=11.34, ge=5.0, le=25.0, description="Chi-Square NIS threshold for cyber-attack detection")
     quarantine_threshold: float = Field(default=0.50, ge=0.1, le=0.8, description="Sensor trust threshold below which sensor is isolated")
@@ -92,7 +92,7 @@ class SystemSettingsModel(BaseModel):
 class SetDestinationRequest(BaseModel):
     x: float = Field(..., description="East target coordinate (meters)")
     y: float = Field(..., description="North target coordinate (meters)")
-    z: Optional[float] = Field(default=12.0, description="Altitude (meters)")
+    z: Optional[float] = Field(default=15.0, description="Altitude (meters)")
     label: Optional[str] = Field(default="TARGET_OBJECTIVE", description="Destination label")
 
 
@@ -111,22 +111,25 @@ class TelemetryPacket(BaseModel):
     raw_gps_enu: List[float]
     gps_nis: float
     chi2_attack_state: str
+    is_attack_active: Optional[bool] = False
+    active_attack_type: Optional[str] = "none"
+    active_attack_mag: Optional[float] = 0.0
     ml_predicted_class: str
     ml_confidence: float
     navigation_mode: str
     active_sensors: List[str]
     isolated_sensors: List[str]
     sensor_trust: Dict[str, float]
-    altitude_m: Optional[float] = 12.0
-    altitude_agl_m: Optional[float] = 12.0
+    altitude_m: Optional[float] = 15.0
+    altitude_agl_m: Optional[float] = 15.0
     surface_name: Optional[str] = "GROUND_TARMAC"
     surface_elevation_m: Optional[float] = 0.0
     target_touchdown_z: Optional[float] = 0.35
-    ground_speed_mps: Optional[float] = 2.8
+    ground_speed_mps: Optional[float] = 4.5
     roll_deg: Optional[float] = 0.0
     pitch_deg: Optional[float] = 0.0
     battery_pct: Optional[float] = 98.0
-    current_waypoint: Optional[str] = "WP-1/4"
+    current_waypoint: Optional[str] = "WP-1/8"
     lat_wgs84: Optional[float] = 37.774929
     lon_wgs84: Optional[float] = -122.419416
     mission_type: Optional[str] = "patrol"
@@ -164,7 +167,7 @@ class SystemStateManager:
         self.ekf.initialize_state(position=np.array([0.0, 0.0, self.cruise_altitude]), velocity=np.array([0.0, 0.0, 0.0]))
         self.detector = ResidualDetectorEngine()
         self.resilience = ResilienceManagerEngine()
-        self.planner = AStarPlanner(x_bounds=(-250.0, 250.0), y_bounds=(-250.0, 250.0), grid_resolution=1.0)
+        self.planner = AStarPlanner(x_bounds=(-600.0, 600.0), y_bounds=(-600.0, 600.0), grid_resolution=2.0)
 
         # Physical Drone State
         self.drone_pos = np.array([0.0, 0.0, self.cruise_altitude], dtype=np.float64)
@@ -186,13 +189,16 @@ class SystemStateManager:
         self.target_label = "PERIMETER_PATROL"
         self.waypoints = [
             np.array([0.0, 0.0, self.cruise_altitude]),
-            np.array([24.0, 0.0, self.cruise_altitude]),
-            np.array([24.0, 24.0, self.cruise_altitude]),
-            np.array([0.0, 24.0, self.cruise_altitude]),
+            np.array([120.0, 0.0, self.cruise_altitude]),
+            np.array([160.0, 120.0, self.cruise_altitude + 1.0]),
+            np.array([0.0, 180.0, self.cruise_altitude + 3.0]),
+            np.array([-140.0, 120.0, self.cruise_altitude + 1.0]),
+            np.array([-160.0, -90.0, self.cruise_altitude]),
+            np.array([0.0, -140.0, self.cruise_altitude]),
             np.array([0.0, 0.0, self.cruise_altitude])
         ]
         self.current_wp_idx = 1
-        self.emergency_landing_zone = np.array([28.0, 24.0, self.cruise_altitude])
+        self.emergency_landing_zone = np.array([50.0, 45.0, self.cruise_altitude])
 
         # Flight Phase State Machine (GROUNDED, TAKEOFF, CRUISE, LANDING, LANDED, RTL_CLIMB, RTL_CRUISE, ROOFTOP_APPROACH)
         self.flight_phase = "CRUISE"
@@ -200,11 +206,17 @@ class SystemStateManager:
 
         # Physical 3D Obstacles (Radar, Hangars, Perimeter Towers)
         self.obstacles = [
-            {"x": -40.0, "y": 62.0, "radius": 5.0, "height": 8.0, "name": "DELTA_RADAR"},
-            {"x": 110.0, "y": 0.0, "radius": 9.0, "height": 7.5, "name": "HANGAR_ALPHA"},
-            {"x": -110.0, "y": -50.0, "radius": 9.0, "height": 7.5, "name": "HANGAR_BETA"},
-            {"x": 120.0, "y": -120.0, "radius": 5.0, "height": 26.5, "name": "COMM_MAST_EAST"},
-            {"x": -130.0, "y": 120.0, "radius": 5.0, "height": 26.5, "name": "COMM_MAST_WEST"},
+            {"x": -90.0, "y": 180.0, "radius": 6.0, "height": 7.5, "roof_elev": 3.2, "is_landable": True, "name": "DELTA_RADAR"},
+            {"x": 220.0, "y": 190.0, "radius": 6.0, "height": 7.5, "roof_elev": 3.2, "is_landable": True, "name": "ECHO_RADAR"},
+            {"x": 160.0, "y": 0.0, "radius": 10.0, "height": 7.5, "roof_elev": 7.0, "is_landable": True, "name": "HANGAR_ALPHA"},
+            {"x": -160.0, "y": -90.0, "radius": 10.0, "height": 7.5, "roof_elev": 7.0, "is_landable": True, "name": "HANGAR_BETA"},
+            {"x": 0.0, "y": -180.0, "radius": 10.0, "height": 7.5, "roof_elev": 7.0, "is_landable": True, "name": "HANGAR_GAMMA"},
+            {"x": 260.0, "y": -160.0, "radius": 5.0, "height": 36.5, "name": "COMM_MAST_EAST"},
+            {"x": -260.0, "y": 160.0, "radius": 5.0, "height": 36.5, "name": "COMM_MAST_WEST"},
+            {"x": 340.0, "y": 300.0, "radius": 4.5, "height": 28.0, "name": "WATCHTOWER_NE"},
+            {"x": -340.0, "y": -280.0, "radius": 4.5, "height": 28.0, "name": "WATCHTOWER_SW"},
+            {"x": 320.0, "y": -300.0, "radius": 4.5, "height": 28.0, "name": "WATCHTOWER_SE"},
+            {"x": -320.0, "y": 300.0, "radius": 4.5, "height": 28.0, "name": "WATCHTOWER_NW"},
         ]
         for obs in self.obstacles:
             self.planner.add_obstacle(obs["x"], obs["y"], radius=obs["radius"], height=obs["height"])
@@ -232,13 +244,16 @@ class SystemStateManager:
             "raw_gps_enu": [0.0, 0.0, self.cruise_altitude],
             "gps_nis": 0.45,
             "chi2_attack_state": "NORMAL",
+            "is_attack_active": False,
+            "active_attack_type": "none",
+            "active_attack_mag": 0.0,
             "ml_predicted_class": "NORMAL",
             "ml_confidence": 0.99,
             "navigation_mode": "NORMAL_MISSION",
             "active_sensors": ["gps", "imu", "lidar", "vision_pose"],
             "isolated_sensors": [],
             "sensor_trust": {"gps": 1.0, "imu": 1.0, "lidar": 1.0, "vision_pose": 1.0},
-            "current_waypoint": "WP-1/4",
+            "current_waypoint": "WP-1/8",
             "battery_pct": 98.5,
             "lat_wgs84": 37.774929,
             "lon_wgs84": -122.419416,
@@ -246,7 +261,7 @@ class SystemStateManager:
             "target_goal": None,
             "target_label": "PERIMETER_PATROL",
             "distance_to_goal": 0.0,
-            "planned_waypoints": [[0.0, 0.0, 12.0], [24.0, 0.0, 12.0], [24.0, 24.0, 12.0], [0.0, 24.0, 12.0], [0.0, 0.0, 12.0]],
+            "planned_waypoints": [[round(float(c), 2) for c in wp] for wp in self.waypoints],
             "flight_phase": self.flight_phase,
             "is_airborne": self.is_airborne
         }
@@ -271,29 +286,39 @@ class SystemStateManager:
         Calculates physical surface elevation directly beneath coordinates (x, y).
         Returns: (surface_elevation_m, surface_name, is_landable)
         """
-        # 1. Hangar Alpha Rooftop Helipad (x=110, y=0, width X: [103.0, 117.0], length Y: [-12.0, 12.0])
-        if 103.0 <= x <= 117.0 and -12.0 <= y <= 12.0:
+        # 1. Hangar Alpha Rooftop Helipad (x=160, y=0, width X: [153.0, 167.0], length Y: [-14.0, 14.0])
+        if 153.0 <= x <= 167.0 and -14.0 <= y <= 14.0:
             return 7.0, "HANGAR_ALPHA_ROOF", True
 
-        # 2. Hangar Beta Rooftop Helipad (x=-110, y=-50)
-        if -117.0 <= x <= -103.0 and -62.0 <= y <= -38.0:
+        # 2. Hangar Beta Rooftop Helipad (x=-160, y=-90, width X: [-167.0, -153.0], length Y: [-104.0, -76.0])
+        if -167.0 <= x <= -153.0 and -104.0 <= y <= -76.0:
             return 7.0, "HANGAR_BETA_ROOF", True
 
-        # 3. Delta Radar Bunker Observation & Servicing Deck (x=-40, y=62, radius 5.0m)
-        if math.hypot(x - (-40.0), y - 62.0) <= 5.0:
-            return 3.2, "RADAR_BUNKER_DECK", True
+        # 3. Hangar Gamma Rooftop Helipad (x=0, y=-180, width X: [-14.0, 14.0], length Y: [-187.0, -173.0])
+        if -14.0 <= x <= 14.0 and -187.0 <= y <= -173.0:
+            return 7.0, "HANGAR_GAMMA_ROOF", True
 
-        # 4. Standard Helipads & Ground Tarmac
-        if math.hypot(x, y) <= 5.5:
+        # 4. Radar Bunker Observation & Servicing Decks (Deck height: 3.2m)
+        if math.hypot(x - (-90.0), y - 180.0) <= 5.0:
+            return 3.2, "DELTA_RADAR_DECK", True
+        if math.hypot(x - 220.0, y - 190.0) <= 5.0:
+            return 3.2, "ECHO_RADAR_DECK", True
+
+        # 5. Tactical Field Outposts & Helipads Across the 1600m Airfield
+        if math.hypot(x, y) <= 6.0:
             return 0.0, "BASE_ALPHA_HELIPAD", True
-        elif math.hypot(x - 28.0, y - 24.0) <= 5.5:
+        elif math.hypot(x - 50.0, y - 45.0) <= 6.0:
             return 0.0, "EMERGENCY_BRAVO_HELIPAD", True
-        elif math.hypot(x - 45.0, y - 30.0) <= 5.5:
+        elif math.hypot(x - 110.0, y - 90.0) <= 6.0:
             return 0.0, "OUTPOST_CHARLIE_HELIPAD", True
-        elif math.hypot(x - (-40.0), y - 50.0) <= 5.5:
-            return 0.0, "DEPOT_DELTA_HELIPAD", True
-        elif math.hypot(x - 70.0, y - (-35.0)) <= 5.5:
+        elif math.hypot(x - (-120.0), y - 130.0) <= 6.0:
+            return 0.0, "OBJECTIVE_DELTA_HELIPAD", True
+        elif math.hypot(x - 180.0, y - (-90.0)) <= 6.0:
             return 0.0, "OBSERVATION_ECHO_HELIPAD", True
+        elif math.hypot(x - (-200.0), y - (-140.0)) <= 6.0:
+            return 0.0, "FORWARD_FOXTROT_HELIPAD", True
+        elif math.hypot(x - 240.0, y - 180.0) <= 6.0:
+            return 0.0, "GOLF_PERIMETER_HELIPAD", True
 
         return 0.0, "GROUND_TARMAC", True
 
@@ -355,15 +380,18 @@ class SystemStateManager:
             self.current_wp_idx = 1
 
     def set_patrol_mode(self):
-        """Restores continuous 4-waypoint reconnaissance perimeter patrol."""
+        """Restores continuous 8-waypoint reconnaissance perimeter patrol across the 1600m airbase."""
         self.mission_type = "patrol"
         self.target_goal = None
         self.target_label = "PERIMETER_PATROL"
         self.waypoints = [
             np.array([0.0, 0.0, self.cruise_altitude]),
-            np.array([24.0, 0.0, self.cruise_altitude]),
-            np.array([24.0, 24.0, self.cruise_altitude]),
-            np.array([0.0, 24.0, self.cruise_altitude]),
+            np.array([120.0, 0.0, self.cruise_altitude]),
+            np.array([160.0, 120.0, self.cruise_altitude + 1.0]),
+            np.array([0.0, 180.0, self.cruise_altitude + 3.0]),
+            np.array([-140.0, 120.0, self.cruise_altitude + 1.0]),
+            np.array([-160.0, -90.0, self.cruise_altitude]),
+            np.array([0.0, -140.0, self.cruise_altitude]),
             np.array([0.0, 0.0, self.cruise_altitude])
         ]
         self.current_wp_idx = 1
@@ -788,6 +816,9 @@ class SystemStateManager:
             "raw_gps_enu": [round(float(v), 3) for v in gps_meas],
             "gps_nis": round(gps_nis, 2),
             "chi2_attack_state": chi2_state,
+            "is_attack_active": is_attack_active,
+            "active_attack_type": attack_type if is_attack_active else "none",
+            "active_attack_mag": round(attack_mag, 2) if is_attack_active else 0.0,
             "ml_predicted_class": ml_label,
             "ml_confidence": round(ml_confidence, 3),
             "navigation_mode": res_policy["navigation_mode"],

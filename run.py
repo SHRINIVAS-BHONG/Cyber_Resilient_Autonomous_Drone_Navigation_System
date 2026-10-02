@@ -20,6 +20,14 @@ import time
 import webbrowser
 import requests
 
+# Ensure safe UTF-8 output on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 root_dir = Path(__file__).resolve().parent
 
 # Ensure packages are discoverable
@@ -109,7 +117,7 @@ def clear_attacks():
 
 def print_menu():
     print("\n" + "=" * 78)
-    print("  🛸 CYBER-RESILIENT AUTONOMOUS DRONE NAVIGATION SYSTEM - COMMAND CENTER")
+    print("  [+] CYBER-RESILIENT AUTONOMOUS DRONE NAVIGATION SYSTEM - COMMAND CENTER")
     print("=" * 78)
     print("  PRIMARY VISUALIZATION & INTERFACES:")
     print("  [1] Open 3D Tactical Flight Cockpit    (Three.js GCS: http://localhost:8000/cockpit)")
@@ -124,7 +132,7 @@ def print_menu():
     print("-" * 78)
     print("  LIVE CYBER-ATTACK INJECTION CONTROLS:")
     print("  [g] Inject GPS Spoofing Attack         (25m Slow Drift + Step Jump)")
-    print("  [i] Inject IMU Bias Manipulation       (+2.5 m/s² Accelerometer Tampering)")
+    print("  [i] Inject IMU Bias Manipulation       (+2.5 m/s^2 Accelerometer Tampering)")
     print("  [l] Inject LiDAR Range Corruption      (Altimeter Range Fault)")
     print("  [m] Inject Coordinated Multi-Attack    (Simultaneous GPS + IMU)")
     print("  [0] Clear Attacks / Return to Normal")
@@ -134,9 +142,14 @@ def print_menu():
 
 def main():
     os.system("cls" if os.name == "nt" else "clear")
+    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     print("\n" + "=" * 78)
-    print("  🛸 CYBER-RESILIENT AUTONOMOUS DRONE NAVIGATION SYSTEM")
+    print("  [+] CYBER-RESILIENT AUTONOMOUS DRONE NAVIGATION SYSTEM")
     print("  Zero Mocks | 10-DOF Extended Kalman Filter | Dual Statistical & ML Engine")
+    if sys.version_info[:2] == (3, 10):
+        print(f"  Python Runtime: {py_ver} (Target Version: Python 3.10 Confirmed)")
+    else:
+        print(f"  Python Runtime: {py_ver} (Warning: Target version is Python 3.10)")
     print("=" * 78)
 
     # 1. Start Services (FastAPI 3D Cockpit Gateway)
@@ -155,7 +168,17 @@ def main():
         print_menu()
         try:
             choice = input("Select an option: ").strip().lower()
-        except (KeyboardInterrupt, EOFError):
+        except KeyboardInterrupt:
+            break
+        except EOFError:
+            print("\n[*] Non-interactive environment detected. Services remain running in background.")
+            print("[*] 3D Tactical Flight Cockpit: http://localhost:8000/cockpit")
+            print("[*] Swagger API Documentation:  http://localhost:8000/docs")
+            try:
+                while True:
+                    time.sleep(1.0)
+            except KeyboardInterrupt:
+                pass
             break
 
         if choice == "1":
