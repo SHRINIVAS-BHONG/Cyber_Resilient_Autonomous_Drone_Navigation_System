@@ -903,6 +903,7 @@
           <span id="defense-btn-icon">🛡️</span>
           <span id="defense-btn-text">DEFENSE: ON</span>
         </button>
+        <button class="btn btn-view hud-interactive" id="btn-env-time" onclick="toggleDayNight()" title="Toggle Lighting Environment: Radiant Day vs Tactical Night (Hotkey: T)" style="border-color: rgba(251,191,36,0.6); color: #fbbf24; background: rgba(251,191,36,0.18);">☀️ DAY</button>
         <button class="btn btn-view hud-interactive" id="btn-zen" onclick="toggleZenMode()" title="Zen Mode: Hide HUD for pure 3D flight view (Hotkeys: Z or Tab)" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; background: rgba(56,189,248,0.12);">👁️ ZEN</button>
         <button class="btn btn-view hud-interactive" onclick="toggleSettingsModal()" title="System Configuration & Dynamics" style="border-color: rgba(245,158,11,0.4); color: #f59e0b; background: rgba(245,158,11,0.12);">⚙️ CONFIG</button>
         <button class="btn btn-view hud-interactive" onclick="toggleBenchmarksModal()" title="Academic Proof & Verification Specs" style="border-color: rgba(139,92,246,0.4); color: #c084fc; background: rgba(139,92,246,0.12);">📊 SPECS</button>
@@ -1461,9 +1462,85 @@
     // -------------------------------------------------------------
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060913);
-    // Linear fog (500m to 3200m) ensures zero obscuration for top-down & tactical satellite views
-    scene.fog = new THREE.Fog(0x060913, 500, 3200);
+
+    // Environment Lighting Modes: DAY (Default) vs NIGHT
+    let isDayMode = true;
+
+    const ENV_PALETTE = {
+      day: {
+        skyColor: 0xdbeafe,
+        fogColor: 0xdbeafe,
+        fogNear: 800,
+        fogFar: 3600,
+        ambientColor: 0xffffff,
+        ambientIntensity: 1.25,
+        hemiSky: 0xe0f2fe,
+        hemiGround: 0xbbf7d0,
+        hemiIntensity: 1.35,
+        sunColor: 0xfffbeb,
+        sunIntensity: 2.4,
+        overheadIntensity: 0.95,
+        terrainColor: 0x2e5c38, // Lush natural green airfield grass perimeter
+        tarmacColor: 0x334155,  // Slate gray airfield concrete tarmac
+        runwayColor: 0x1e293b,  // Dark asphalt runway
+        gridOpacity: 0.40
+      },
+      night: {
+        skyColor: 0x060913,
+        fogColor: 0x060913,
+        fogNear: 500,
+        fogFar: 3200,
+        ambientColor: 0xffffff,
+        ambientIntensity: 0.85,
+        hemiSky: 0xdbeafe,
+        hemiGround: 0x1e293b,
+        hemiIntensity: 1.0,
+        sunColor: 0x7dd3fc,
+        sunIntensity: 1.4,
+        overheadIntensity: 1.1,
+        terrainColor: 0x090f1d,
+        tarmacColor: 0x111c30,
+        runwayColor: 0x18243b,
+        gridOpacity: 0.65
+      }
+    };
+
+    function createSkyTexture(isDay) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 0, 512);
+      if (isDay) {
+        grad.addColorStop(0.0, '#0284c7');  // Deep sky azure zenith
+        grad.addColorStop(0.35, '#38bdf8'); // Radiant aerospace blue
+        grad.addColorStop(0.70, '#bae6fd'); // Atmospheric sky haze
+        grad.addColorStop(1.0, '#e0f2fe');  // Sunlit horizon haze
+      } else {
+        grad.addColorStop(0.0, '#020617');  // Pitch zenith
+        grad.addColorStop(0.60, '#060913'); // Midnight void
+        grad.addColorStop(1.0, '#0b1329');  // Horizon low glow
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 512);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      return texture;
+    }
+
+    // Inverted Atmospheric Sky Dome (2400m radius)
+    const skyGeo = new THREE.SphereGeometry(2400, 32, 24);
+    const skyMat = new THREE.MeshBasicMaterial({
+      map: createSkyTexture(true),
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    const skyDome = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(skyDome);
+
+    scene.background = new THREE.Color(0xdbeafe);
+    scene.fog = new THREE.Fog(0xdbeafe, 800, 3600);
 
     const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.2, 3500);
     camera.position.set(75, 55, 75);
@@ -1482,45 +1559,45 @@
     controls.maxDistance = 2200;
     controls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't clip ground
 
-    // High-Clarity Multi-Source Avionics Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+    // High-Clarity Radiant Daytime Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
     scene.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.25);
-    hemiLight.position.set(0, 250, 0);
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0xbbf7d0, 1.35);
+    hemiLight.position.set(0, 300, 0);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0x7dd3fc, 1.6);
-    sunLight.position.set(150, 300, 100);
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.4);
+    sunLight.position.set(200, 450, 150);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 1400;
-    sunLight.shadow.camera.left = -480;
-    sunLight.shadow.camera.right = 480;
-    sunLight.shadow.camera.top = 480;
-    sunLight.shadow.camera.bottom = -480;
+    sunLight.shadow.camera.far = 1600;
+    sunLight.shadow.camera.left = -500;
+    sunLight.shadow.camera.right = 500;
+    sunLight.shadow.camera.top = 500;
+    sunLight.shadow.camera.bottom = -500;
     scene.add(sunLight);
 
     // Dedicated Overhead Tactical Sun: illuminates top surfaces directly for crystal-clear satellite views
-    const overheadLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    const overheadLight = new THREE.DirectionalLight(0xffffff, 0.95);
     overheadLight.position.set(0, 600, 0);
     scene.add(overheadLight);
 
-    const accentLight = new THREE.PointLight(0x818cf8, 2.2, 360);
+    const accentLight = new THREE.PointLight(0x38bdf8, 1.4, 320);
     accentLight.position.set(40, 60, 40);
     scene.add(accentLight);
 
     // -------------------------------------------------------------
-    // Vast Tactical Proving Ground (High-Contrast Military Airbase)
+    // Vast Tactical Proving Ground (Bright Military Airfield)
     // -------------------------------------------------------------
-    // Deep Horizon Ground Disc (2400m outer terrain)
+    // Deep Horizon Ground Disc (2400m outer terrain - lush green airfield turf)
     const terrainGeo = new THREE.CircleGeometry(1200, 64);
     const terrainMat = new THREE.MeshStandardMaterial({
-      color: 0x090f1d,
+      color: 0x2e5c38,
       roughness: 0.90,
-      metalness: 0.10
+      metalness: 0.08
     });
     const terrain = new THREE.Mesh(terrainGeo, terrainMat);
     terrain.rotation.x = -Math.PI / 2;
@@ -1529,21 +1606,25 @@
     scene.add(terrain);
 
     // Primary High-Tech Tactical Grid (1600m, 80 subdivisions = 20m high-contrast grid cells)
-    const gridHelper = new THREE.GridHelper(1600, 80, 0x0284c7, 0x172554);
+    const gridHelper = new THREE.GridHelper(1600, 80, 0x0284c7, 0x64748b);
     gridHelper.position.y = 0.01;
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.40;
     scene.add(gridHelper);
 
     // Minor Accent Radar Grid (600m fine 10m tactical subgrid)
-    const subGridHelper = new THREE.GridHelper(600, 60, 0x38bdf8, 0x0e2238);
+    const subGridHelper = new THREE.GridHelper(600, 60, 0x38bdf8, 0x94a3b8);
     subGridHelper.position.y = 0.015;
+    subGridHelper.material.transparent = true;
+    subGridHelper.material.opacity = 0.35;
     scene.add(subGridHelper);
 
-    // Grand Airfield Central Tarmac Complex (1000m x 1000m)
+    // Grand Airfield Central Tarmac Complex (1000m x 1000m slate concrete)
     const tarmacGeo = new THREE.PlaneGeometry(1000, 1000);
     const tarmacMat = new THREE.MeshStandardMaterial({ 
-      color: 0x111c30, 
-      roughness: 0.82, 
-      metalness: 0.18 
+      color: 0x334155, 
+      roughness: 0.78, 
+      metalness: 0.16 
     });
     const tarmac = new THREE.Mesh(tarmacGeo, tarmacMat);
     tarmac.rotation.x = -Math.PI / 2;
@@ -1554,7 +1635,7 @@
     // Tactical Radar Range Rings on Airfield (50m, 100m, 150m, 200m)
     [50, 100, 150, 200].forEach((r, idx) => {
       const ringGeo = new THREE.RingGeometry(r - 0.35, r + 0.35, 64);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
       ringMesh.rotation.x = -Math.PI / 2;
       ringMesh.position.y = 0.022;
@@ -1563,7 +1644,7 @@
 
     // Runway 09/27 (East-West Major Runway: 800m length x 40m width)
     const runwayGeo = new THREE.PlaneGeometry(800, 40);
-    const runwayMat = new THREE.MeshStandardMaterial({ color: 0x18243b, roughness: 0.75, metalness: 0.25 });
+    const runwayMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.70, metalness: 0.22 });
     const runway = new THREE.Mesh(runwayGeo, runwayMat);
     runway.rotation.x = -Math.PI / 2;
     runway.position.set(0, 0.025, 0);
@@ -2441,6 +2522,66 @@
       }
     }
 
+    function toggleDayNight() {
+      setDayNightMode(!isDayMode);
+    }
+
+    function setDayNightMode(isDay) {
+      isDayMode = isDay;
+      const palette = isDay ? ENV_PALETTE.day : ENV_PALETTE.night;
+
+      scene.background.setHex(palette.skyColor);
+      scene.fog.color.setHex(palette.fogColor);
+      scene.fog.near = palette.fogNear;
+      scene.fog.far = palette.fogFar;
+
+      if (typeof skyMat !== 'undefined' && skyMat) {
+        skyMat.map = createSkyTexture(isDay);
+        skyMat.needsUpdate = true;
+      }
+
+      if (typeof ambientLight !== 'undefined' && ambientLight) {
+        ambientLight.color.setHex(palette.ambientColor);
+        ambientLight.intensity = palette.ambientIntensity;
+      }
+
+      if (typeof hemiLight !== 'undefined' && hemiLight) {
+        hemiLight.color.setHex(palette.hemiSky);
+        hemiLight.groundColor.setHex(palette.hemiGround);
+        hemiLight.intensity = palette.hemiIntensity;
+      }
+
+      if (typeof sunLight !== 'undefined' && sunLight) {
+        sunLight.color.setHex(palette.sunColor);
+        sunLight.intensity = palette.sunIntensity;
+      }
+
+      if (typeof overheadLight !== 'undefined' && overheadLight) {
+        overheadLight.intensity = palette.overheadIntensity;
+      }
+
+      if (typeof terrainMat !== 'undefined' && terrainMat) terrainMat.color.setHex(palette.terrainColor);
+      if (typeof tarmacMat !== 'undefined' && tarmacMat) tarmacMat.color.setHex(palette.tarmacColor);
+      if (typeof runwayMat !== 'undefined' && runwayMat) runwayMat.color.setHex(palette.runwayColor);
+
+      if (typeof gridHelper !== 'undefined' && gridHelper) gridHelper.material.opacity = palette.gridOpacity;
+      if (typeof subGridHelper !== 'undefined' && subGridHelper) subGridHelper.material.opacity = palette.gridOpacity * 0.9;
+
+      const btn = document.getElementById('btn-env-time');
+      if (btn) {
+        btn.innerHTML = isDay ? '☀️ DAY' : '🌙 NIGHT';
+        btn.style.color = isDay ? '#fbbf24' : '#38bdf8';
+        btn.style.borderColor = isDay ? 'rgba(251,191,36,0.6)' : 'rgba(56,189,248,0.4)';
+        btn.style.background = isDay ? 'rgba(251,191,36,0.18)' : 'rgba(56,189,248,0.12)';
+        btn.title = isDay
+          ? 'Lighting: Radiant Day Active — Click or Press T to switch to Tactical Night'
+          : 'Lighting: Tactical Night Active — Click or Press T to switch to Radiant Day';
+      }
+
+      showToast(isDay ? '☀️ ENVIRONMENT: Radiant Day Scenario Active' : '🌙 ENVIRONMENT: Tactical Night Scenario Active');
+      playTacticalTone('click');
+    }
+
     function updateTelemetry(data) {
       if (!data) return;
 
@@ -3251,6 +3392,9 @@
       } else if (e.key === 'd' || e.key === 'D') {
         e.preventDefault();
         toggleDefense();
+      } else if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        toggleDayNight();
       } else if (e.key === 'f' || e.key === 'F') {
         setCameraMode('goal');
       } else if (e.key === 'h' || e.key === 'H') {
