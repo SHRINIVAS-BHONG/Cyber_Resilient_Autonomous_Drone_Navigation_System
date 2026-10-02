@@ -1462,7 +1462,8 @@
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x060913);
-    scene.fog = new THREE.FogExp2(0x060913, 0.0035);
+    // Linear fog (500m to 3200m) ensures zero obscuration for top-down & tactical satellite views
+    scene.fog = new THREE.Fog(0x060913, 500, 3200);
 
     const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.2, 3500);
     camera.position.set(75, 55, 75);
@@ -1481,40 +1482,45 @@
     controls.maxDistance = 2200;
     controls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't clip ground
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    // High-Clarity Multi-Source Avionics Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xbfdbfe, 0x1e293b, 0.95);
-    hemiLight.position.set(0, 150, 0);
+    const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.25);
+    hemiLight.position.set(0, 250, 0);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
-    sunLight.position.set(150, 220, 100);
+    const sunLight = new THREE.DirectionalLight(0x7dd3fc, 1.6);
+    sunLight.position.set(150, 300, 100);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 1200;
+    sunLight.shadow.camera.far = 1400;
     sunLight.shadow.camera.left = -480;
     sunLight.shadow.camera.right = 480;
     sunLight.shadow.camera.top = 480;
     sunLight.shadow.camera.bottom = -480;
     scene.add(sunLight);
 
-    const accentLight = new THREE.PointLight(0x818cf8, 2.0, 320);
+    // Dedicated Overhead Tactical Sun: illuminates top surfaces directly for crystal-clear satellite views
+    const overheadLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    overheadLight.position.set(0, 600, 0);
+    scene.add(overheadLight);
+
+    const accentLight = new THREE.PointLight(0x818cf8, 2.2, 360);
     accentLight.position.set(40, 60, 40);
     scene.add(accentLight);
 
     // -------------------------------------------------------------
-    // Vast Tactical Proving Ground (1600m x 1600m Airspace & Base)
+    // Vast Tactical Proving Ground (High-Contrast Military Airbase)
     // -------------------------------------------------------------
     // Deep Horizon Ground Disc (2400m outer terrain)
     const terrainGeo = new THREE.CircleGeometry(1200, 64);
     const terrainMat = new THREE.MeshStandardMaterial({
-      color: 0x030712,
-      roughness: 0.96,
-      metalness: 0.04
+      color: 0x090f1d,
+      roughness: 0.90,
+      metalness: 0.10
     });
     const terrain = new THREE.Mesh(terrainGeo, terrainMat);
     terrain.rotation.x = -Math.PI / 2;
@@ -1522,22 +1528,22 @@
     terrain.receiveShadow = true;
     scene.add(terrain);
 
-    // Primary High-Tech Tactical Grid (1600m, 160 subdivisions = 10m grid cells)
-    const gridHelper = new THREE.GridHelper(1600, 160, 0x1e3a5f, 0x091426);
+    // Primary High-Tech Tactical Grid (1600m, 80 subdivisions = 20m high-contrast grid cells)
+    const gridHelper = new THREE.GridHelper(1600, 80, 0x0284c7, 0x172554);
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    // Minor Accent Radar Grid (600m fine 5m subgrid)
-    const subGridHelper = new THREE.GridHelper(600, 120, 0x38bdf8, 0x0d1f38);
+    // Minor Accent Radar Grid (600m fine 10m tactical subgrid)
+    const subGridHelper = new THREE.GridHelper(600, 60, 0x38bdf8, 0x0e2238);
     subGridHelper.position.y = 0.015;
     scene.add(subGridHelper);
 
     // Grand Airfield Central Tarmac Complex (1000m x 1000m)
     const tarmacGeo = new THREE.PlaneGeometry(1000, 1000);
     const tarmacMat = new THREE.MeshStandardMaterial({ 
-      color: 0x070c18, 
-      roughness: 0.88, 
-      metalness: 0.12 
+      color: 0x111c30, 
+      roughness: 0.82, 
+      metalness: 0.18 
     });
     const tarmac = new THREE.Mesh(tarmacGeo, tarmacMat);
     tarmac.rotation.x = -Math.PI / 2;
@@ -1545,12 +1551,22 @@
     tarmac.name = "tactical_tarmac";
     scene.add(tarmac);
 
+    // Tactical Radar Range Rings on Airfield (50m, 100m, 150m, 200m)
+    [50, 100, 150, 200].forEach((r, idx) => {
+      const ringGeo = new THREE.RingGeometry(r - 0.35, r + 0.35, 64);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.rotation.x = -Math.PI / 2;
+      ringMesh.position.y = 0.022;
+      scene.add(ringMesh);
+    });
+
     // Runway 09/27 (East-West Major Runway: 800m length x 40m width)
     const runwayGeo = new THREE.PlaneGeometry(800, 40);
-    const runwayMat = new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.82, metalness: 0.18 });
+    const runwayMat = new THREE.MeshStandardMaterial({ color: 0x18243b, roughness: 0.75, metalness: 0.25 });
     const runway = new THREE.Mesh(runwayGeo, runwayMat);
     runway.rotation.x = -Math.PI / 2;
-    runway.position.set(0, 0.02, 0);
+    runway.position.set(0, 0.025, 0);
     runway.receiveShadow = true;
     scene.add(runway);
 
@@ -1890,7 +1906,7 @@
     ];
     const wpPoints = wpCoords.map(p => new THREE.Vector3(p[0], p[1], p[2]));
     const wpGeo = new THREE.BufferGeometry().setFromPoints(wpPoints);
-    const wpMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: 2.0, gapSize: 1.5 });
+    const wpMat = new THREE.LineDashedMaterial({ color: 0xfacc15, dashSize: 2.0, gapSize: 1.5 });
     const wpPatrolLine = new THREE.Line(wpGeo, wpMat);
     wpPatrolLine.computeLineDistances();
     scene.add(wpPatrolLine);
@@ -1899,7 +1915,7 @@
     wpCoords.slice(0, 7).forEach((p, idx) => {
       const ringMesh = new THREE.Mesh(
         new THREE.TorusGeometry(1.6, 0.10, 16, 32),
-        new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.9 })
+        new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.9 })
       );
       ringMesh.position.set(p[0], p[1], p[2]);
       ringMesh.rotation.x = Math.PI / 2;
@@ -1908,7 +1924,7 @@
 
       const guidePoints = [new THREE.Vector3(p[0], 0.1, p[2]), new THREE.Vector3(p[0], p[1], p[2])];
       const guideGeo = new THREE.BufferGeometry().setFromPoints(guidePoints);
-      const guideMat = new THREE.LineDashedMaterial({ color: 0x38bdf8, dashSize: 0.8, gapSize: 0.8, opacity: 0.35, transparent: true });
+      const guideMat = new THREE.LineDashedMaterial({ color: 0xfacc15, dashSize: 0.8, gapSize: 0.8, opacity: 0.35, transparent: true });
       const guideLine = new THREE.Line(guideGeo, guideMat);
       guideLine.computeLineDistances();
       scene.add(guideLine);
@@ -2088,6 +2104,35 @@
     lidarCone.position.y = -6;
     droneGroup.add(lidarCone);
 
+    // High-Clarity Tactical Overhead Reticle (Attached to Drone for Crystal-Clear Top View)
+    const droneReticleGroup = new THREE.Group();
+    droneReticleGroup.position.set(0, 0.05, 0);
+
+    // Outer Target Ring (Radius 2.6m, bright cyan)
+    const reticleRingGeo = new THREE.RingGeometry(2.35, 2.65, 36);
+    const reticleRingMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+    const reticleRing = new THREE.Mesh(reticleRingGeo, reticleRingMat);
+    reticleRing.rotation.x = -Math.PI / 2;
+    droneReticleGroup.add(reticleRing);
+
+    // Forward Direction Heading Chevron (Points in +Z flight direction)
+    const chevronGeo = new THREE.BufferGeometry();
+    const chevronVertices = new Float32Array([
+      // Left Wing Triangle
+      0, 0.02, 4.2,
+      -1.35, 0.02, 2.6,
+      0, 0.02, 3.1,
+      // Right Wing Triangle
+      0, 0.02, 4.2,
+      0, 0.02, 3.1,
+      1.35, 0.02, 2.6
+    ]);
+    chevronGeo.setAttribute('position', new THREE.BufferAttribute(chevronVertices, 3));
+    const chevronMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide });
+    const chevronMesh = new THREE.Mesh(chevronGeo, chevronMat);
+    droneReticleGroup.add(chevronMesh);
+    droneGroup.add(droneReticleGroup);
+
     // -------------------------------------------------------------
     // Red Ghost Drone (Visualizes Attacker Spoofed GPS Coordinate)
     // -------------------------------------------------------------
@@ -2106,6 +2151,15 @@
     );
     ghostRing.rotation.x = Math.PI / 2;
     ghostDrone.add(ghostRing);
+
+    // Ghost Drone High-Visibility Tactical Reticle
+    const ghostReticleRingGeo = new THREE.RingGeometry(2.35, 2.65, 36);
+    const ghostReticleRingMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+    const ghostReticleRing = new THREE.Mesh(ghostReticleRingGeo, ghostReticleRingMat);
+    ghostReticleRing.rotation.x = -Math.PI / 2;
+    ghostReticleRing.position.y = 0.05;
+    ghostDrone.add(ghostReticleRing);
+
     ghostDrone.visible = false;
 
     // Real-Time Attack Deviation Vector Line
@@ -2353,7 +2407,9 @@
 
     function setCameraMode(mode) {
       currentCamMode = mode;
-      document.querySelectorAll('.btn-view').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.dock-btn, .btn-view').forEach(b => {
+        if (b.id && b.id.startsWith('btn-cam-')) b.classList.remove('active');
+      });
       const activeBtn = document.getElementById(`btn-cam-${mode}`);
       if (activeBtn) activeBtn.classList.add('active');
 
@@ -2375,9 +2431,9 @@
         showToast('🔄 CAMERA: Free Orbit 3D Mode');
       } else if (mode === 'top') {
         controls.enabled = true;
-        const center = (currentCamMode === 'track') ? droneGroup.position : controls.target;
-        glideCameraTo(new THREE.Vector3(center.x, 0, center.z), new THREE.Vector3(center.x, 380, center.z + 0.1));
-        showToast('🗺️ CAMERA: Tactical Top-Down Satellite View');
+        const center = droneGroup.position;
+        glideCameraTo(new THREE.Vector3(center.x, 0, center.z), new THREE.Vector3(center.x, 125, center.z + 0.1));
+        showToast('🗺️ CAMERA: Tactical Top-Down Satellite View (125m Overhead)');
       } else {
         controls.enabled = false;
         if (mode === 'chase') showToast('🏎️ CAMERA: 3rd-Person Chase Cam');
@@ -3234,6 +3290,25 @@
       if (currentCamMode === 'track') {
         // Smoothly track drone in 3D orbit
         controls.target.lerp(droneGroup.position, 0.08);
+      } else if (currentCamMode === 'top') {
+        // Tactical top-down satellite tracking: follow drone continuously overhead
+        if (!isTransitioningCam) {
+          const dx = droneGroup.position.x - controls.target.x;
+          const dz = droneGroup.position.z - controls.target.z;
+          controls.target.x += dx * 0.12;
+          controls.target.z += dz * 0.12;
+          controls.target.y = droneGroup.position.y;
+          camera.position.x += dx * 0.12;
+          camera.position.z += dz * 0.12;
+        } else {
+          controls.target.lerp(targetOrbitCenter, 0.08);
+          if (targetCamPos) {
+            camera.position.lerp(targetCamPos, 0.08);
+            if (camera.position.distanceTo(targetCamPos) < 0.6 && controls.target.distanceTo(targetOrbitCenter) < 0.6) {
+              isTransitioningCam = false;
+            }
+          }
+        }
       } else if (isTransitioningCam) {
         controls.target.lerp(targetOrbitCenter, 0.08);
         if (targetCamPos) {
