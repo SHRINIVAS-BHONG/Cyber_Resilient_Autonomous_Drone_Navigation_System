@@ -156,6 +156,7 @@ class SystemStateManager:
     def __init__(self):
         self.active_attack: Optional[Dict] = None
         self.attack_start_time: Optional[float] = None
+        self.attack_sim_elapsed: float = 0.0
         self.last_ingest_time: float = 0.0
         self.start_time = time.time()
 
@@ -315,6 +316,16 @@ class SystemStateManager:
                 self.resilience.sensor_trust[s] = 1.0
             self.detector.compromised_sensors.clear()
             self.detector.current_state = DetectionState.NORMAL
+            # In contested airspace, disabling defense exposes vehicle to real GPS walk-off spoofing
+            if self.active_attack is None:
+                self.active_attack = {
+                    "attack_type": "gps_spoofing",
+                    "magnitude": 25.0,
+                    "duration_sec": 120.0,
+                    "target_sensor": "gps"
+                }
+                self.attack_start_time = time.time()
+                self.attack_sim_elapsed = 0.0
 
         return self.defense_enabled
 
@@ -437,6 +448,7 @@ class SystemStateManager:
         """Immediately restores nominal operational state and clears all attack traces."""
         self.active_attack = None
         self.attack_start_time = 0.0
+        self.attack_sim_elapsed = 0.0
         for s in ["gps", "imu", "lidar", "vision_pose"]:
             self.resilience.sensor_trust[s] = 1.0
         self.resilience.isolated_sensors.clear()
@@ -503,13 +515,18 @@ class SystemStateManager:
         attack_type = "none"
         attack_mag = 0.0
         if self.active_attack:
-            elapsed = now - self.attack_start_time
+            if not hasattr(self, "attack_sim_elapsed"):
+                self.attack_sim_elapsed = 0.0
+            self.attack_sim_elapsed += dt
+            elapsed = max(now - (self.attack_start_time or now), self.attack_sim_elapsed)
             if elapsed < self.active_attack.get("duration_sec", 25.0):
                 is_attack_active = True
                 attack_type = self.active_attack.get("attack_type", "gps_spoofing")
-                attack_mag = float(self.active_attack.get("magnitude", 20.0))
+                attack_mag = float(self.active_attack.get("magnitude", 25.0))
             else:
                 self.reset_nominal()
+        else:
+            self.attack_sim_elapsed = 0.0
 
         # 1. Flight Phase State Machine & Motion Dynamics
         self.drone_pos = np.asarray(self.drone_pos, dtype=np.float64)
@@ -659,46 +676,58 @@ class SystemStateManager:
             target_wp = self.waypoints[self.current_wp_idx]
             target_alt = float(target_wp[2]) if len(target_wp) > 2 else self.cruise_altitude
 
-            # If recovering from landing or below target cruise altitude, climb vertically
-            alt_diff = target_alt - (nav_pos[2] if not self.defense_enabled else self.drone_pos[2])
-            if abs(alt_diff) > 0.15:
-                climb_vel = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
-                self.drone_vel[2] = climb_vel
-                self.drone_pos[2] += self.drone_vel[2] * dt
-            else:
-                self.drone_pos[2] = target_alt
-                self.drone_vel[2] = 0.0
+            # Autonomous altitude control: uses nav_pos (the state estimated by EKF)
+            alt_diff = target_alt - nav_pos[2]
+            target_climb = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
+            climb_accel = (target_climb - self.drone_vel[2]) / 0.35
+            self.drone_vel[2] += np.clip(climb_accel, -4.0, 4.0) * dt
+            self.drone_pos[2] += self.drone_vel[2] * dt
 
-            # When defense is OFF, guidance steers using deceived nav_pos (causing drone to veer off-course)
-            diff_xy = target_wp[:2] - (nav_pos[:2] if not self.defense_enabled else self.drone_pos[:2])
+            # Autonomous waypoint guidance: computes error between target waypoint and estimated position
+            diff_xy = target_wp[:2] - nav_pos[:2]
             dist_xy = math.hypot(diff_xy[0], diff_xy[1])
             speed = self.cruise_speed * (self.resilience.speed_factor if self.defense_enabled else 1.0)
 
-            check_dist = math.hypot(target_wp[0] - self.drone_pos[0], target_wp[1] - self.drone_pos[1])
+            # Autopilot waypoint arrival check: uses nav_pos (what the autopilot believes)
+            nav_dist_to_wp = math.hypot(target_wp[0] - nav_pos[0], target_wp[1] - nav_pos[1])
             is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
-            if check_dist < 2.0:
+            if nav_dist_to_wp < 1.8:
                 if self.mission_type == "target_point" and is_final_wp:
                     # Precision hover at target goal coordinate
-                    self.drone_vel[:2] = np.array([0.0, 0.0])
+                    self.drone_vel[:2] *= 0.85
                     self.pitch_deg += (0.0 - self.pitch_deg) * min(1.0, 8.0 * dt)
                     self.roll_deg += (0.0 - self.roll_deg) * min(1.0, 8.0 * dt)
                 else:
                     self.current_wp_idx = (self.current_wp_idx + 1) % len(self.waypoints)
             else:
                 vel_dir_xy = diff_xy / (dist_xy + 1e-6)
-                self.drone_vel[:2] = vel_dir_xy * speed
+                target_vel_xy = vel_dir_xy * speed
+                # Realistic quadcopter inertia & acceleration dynamics (motor response tau = 0.30s)
+                accel_cmd_xy = (target_vel_xy - self.drone_vel[:2]) / 0.30
+                accel_cmd_xy = np.clip(accel_cmd_xy, -5.5, 5.5)
+                self.drone_vel[:2] += accel_cmd_xy * dt
                 self.drone_pos[:2] += self.drone_vel[:2] * dt
 
                 # Authentic Quadcopter Dynamic Attitude (Aviation Heading & Coordinated Bank)
-                target_yaw = float(math.degrees(math.atan2(vel_dir_xy[0], vel_dir_xy[1])) % 360)
+                curr_horiz_speed = float(math.hypot(self.drone_vel[0], self.drone_vel[1]))
+                target_yaw = float(math.degrees(math.atan2(self.drone_vel[0] + 1e-6, self.drone_vel[1] + 1e-6)) % 360)
                 yaw_diff = (target_yaw - self.yaw_deg + 180) % 360 - 180
                 turn_rate = float(np.clip(yaw_diff * 3.5, -45.0, 45.0))
                 self.yaw_deg = float((self.yaw_deg + turn_rate * dt) % 360)
 
-                target_pitch = float(np.clip(speed * 0.70, 0.0, 4.0))
-                target_roll = float(np.clip(-turn_rate * 0.10, -5.0, 5.0))
-                self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
-                self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
+                target_pitch = float(np.clip(curr_horiz_speed * 0.70, 0.0, 4.2))
+                target_roll = float(np.clip(-turn_rate * 0.12, -6.5, 6.5))
+
+                # Real acoustic resonance / gyro bias attitude perturbation when IMU attack active & defense OFF
+                elapsed = max(0.0, now - (self.attack_start_time or now))
+                if is_attack_active and ("imu" in attack_type) and (not self.defense_enabled):
+                    wobble_roll = math.sin(14.0 * elapsed) * 6.5
+                    wobble_pitch = math.cos(10.5 * elapsed) * 5.0
+                    self.pitch_deg += (target_pitch + wobble_pitch - self.pitch_deg) * min(1.0, 10.0 * dt)
+                    self.roll_deg += (target_roll + wobble_roll - self.roll_deg) * min(1.0, 10.0 * dt)
+                else:
+                    self.pitch_deg += (target_pitch - self.pitch_deg) * min(1.0, 8.0 * dt)
+                    self.roll_deg += (target_roll - self.roll_deg) * min(1.0, 8.0 * dt)
 
         # Active Obstacle Awareness, Physical Boundary Enforcement & Realistic Overflight
         if self.is_airborne and self.flight_phase not in ["LANDED"]:
@@ -756,22 +785,67 @@ class SystemStateManager:
         lidar_z = float(true_pos[2] + np.random.normal(0.0, 0.03))
         vision_pos = true_pos + np.random.normal(0.0, 0.04, size=(3,))
 
-        # 3. Inject Cyber Attack
+        # 3. Inject Cyber Attack: Authentic Electronic Warfare & Sensor Fault Physics
         if is_attack_active:
+            elapsed = max(now - (self.attack_start_time or now), getattr(self, "attack_sim_elapsed", 0.0))
+
             if "gps" in attack_type:
-                # Add position drift bias
-                gps_meas[0] += attack_mag
-                gps_meas[1] -= attack_mag * 0.6
-                gps_vel_meas[0] += attack_mag * 0.15
+                # Authentic GNSS Carrier & Code Phase Pull-Off (Walk-off Spoofing):
+                # The spoofing transmitter aligns with authentic signal, then progressively walks
+                # the pseudoranges and carrier Doppler cross-track away from the flight corridor.
+                curr_wp = self.waypoints[self.current_wp_idx]
+                prev_wp = self.waypoints[(self.current_wp_idx - 1) % len(self.waypoints)]
+                corridor_vec = curr_wp[:2] - prev_wp[:2]
+                corridor_len = math.hypot(corridor_vec[0], corridor_vec[1])
+                if corridor_len > 1e-3:
+                    drift_unit_xy = np.array([-corridor_vec[1], corridor_vec[0]]) / corridor_len
+                else:
+                    drift_unit_xy = np.array([0.0, 1.0])
+                drift_unit = np.array([drift_unit_xy[0], drift_unit_xy[1], 0.0], dtype=np.float64)
+
+                # Real tractor spoofing pull-off: starts with detectable residual (15m) and ramps
+                # cross-track at realistic rate up to the requested attack_mag (e.g. 25m)
+                ramp_rate = 3.5  # m/s progressive pull-off rate
+                pull_dist = min(attack_mag, 15.0 + ramp_rate * getattr(self, "attack_sim_elapsed", 0.0))
+                jitter = np.random.normal(0.0, 0.15, size=(3,))
+
+                gps_meas += drift_unit * pull_dist + jitter
+                # Doppler pseudo-velocity matching the carrier frequency offset
+                gps_vel_meas += drift_unit * min(ramp_rate, pull_dist * 0.4) + np.random.normal(0.0, 0.08, size=(3,))
+
             elif "imu" in attack_type:
-                imu_accel[0] += attack_mag * 0.5
-                imu_accel[1] -= attack_mag * 0.4
+                # Real MEMS Acoustic Resonance & Gyro Bias Tampering:
+                # Acoustic waves hitting the MEMS silicon resonant beam inject high-frequency
+                # harmonic distortion (8-12 Hz) plus strong DC bias in specific axes.
+                res_freq = 9.8  # Hz resonant frequency
+                res_harmonic = math.sin(2.0 * math.pi * res_freq * elapsed) * (attack_mag * 0.35)
+                imu_accel[0] += (attack_mag * 0.50) + res_harmonic
+                imu_accel[1] -= (attack_mag * 0.40) - res_harmonic * 0.7
+                imu_accel[2] += res_harmonic * 0.5
+
             elif "lidar" in attack_type:
-                lidar_z -= attack_mag * 0.4
+                # Real Optical Laser Jamming / False Echo Manipulation:
+                # False pulse reflection reports dynamic range error, causing vertical hunting
+                tamper_mag = min(attack_mag, 3.5 + 2.5 * getattr(self, "attack_sim_elapsed", 0.0))
+                lidar_z -= (tamper_mag + 0.75 * math.sin(2.2 * elapsed) + np.random.normal(0.0, 0.12))
+
             elif "multi" in attack_type:
-                gps_meas[0] += attack_mag
-                gps_meas[1] -= attack_mag * 0.6
-                lidar_z -= 8.0
+                # Coordinated Multi-Vector Attack:
+                curr_wp = self.waypoints[self.current_wp_idx]
+                prev_wp = self.waypoints[(self.current_wp_idx - 1) % len(self.waypoints)]
+                corridor_vec = curr_wp[:2] - prev_wp[:2]
+                corridor_len = math.hypot(corridor_vec[0], corridor_vec[1])
+                drift_unit_xy = np.array([-corridor_vec[1], corridor_vec[0]]) / (corridor_len + 1e-6)
+                drift_unit = np.array([drift_unit_xy[0], drift_unit_xy[1], 0.0], dtype=np.float64)
+
+                pull_dist = min(attack_mag, 14.0 + 3.0 * getattr(self, "attack_sim_elapsed", 0.0))
+                gps_meas += drift_unit * pull_dist + np.random.normal(0.0, 0.20, size=(3,))
+                gps_vel_meas += drift_unit * 2.5
+
+                res_vib = math.sin(16.0 * elapsed) * 1.6
+                imu_accel[0] += (attack_mag * 0.35) + res_vib
+                imu_accel[1] -= (attack_mag * 0.30) - res_vib
+                lidar_z -= min(14.0, 3.0 + 2.0 * getattr(self, "attack_sim_elapsed", 0.0))
 
         # 4. 10-DOF EKF IMU Prediction
         if self.defense_enabled and ("imu" in self.resilience.isolated_sensors):

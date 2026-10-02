@@ -197,21 +197,21 @@
       transform: translateY(-1px);
     }
     .defense-btn.disabled {
-      background: rgba(239, 68, 68, 0.22);
-      border: 1px solid rgba(239, 68, 68, 0.85);
-      color: #fca5a5;
-      box-shadow: 0 0 16px rgba(239, 68, 68, 0.5);
+      background: rgba(220, 38, 38, 0.88);
+      border: 1px solid #ef4444;
+      color: #ffffff;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.85);
       animation: pulseDefenseOff 1.2s infinite alternate;
     }
     .defense-btn.disabled:hover {
-      background: rgba(239, 68, 68, 0.35);
-      border-color: #ef4444;
-      box-shadow: 0 0 24px rgba(239, 68, 68, 0.8);
+      background: rgba(239, 68, 68, 0.98);
+      border-color: #f87171;
+      box-shadow: 0 0 28px rgba(239, 68, 68, 1.0);
       transform: translateY(-1px);
     }
     @keyframes pulseDefenseOff {
-      0% { box-shadow: 0 0 6px rgba(239, 68, 68, 0.3); }
-      100% { box-shadow: 0 0 22px rgba(239, 68, 68, 0.75); }
+      0% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.5); }
+      100% { box-shadow: 0 0 26px rgba(239, 68, 68, 0.95); }
     }
 
     /* Attack Notification Banner */
@@ -2601,23 +2601,22 @@
 
       if (!isDefenseEnabled) {
         // UNPROTECTED / DEFENSE BYPASSED MODE
-        if (isUnderActiveAttack) {
-          if (!wasUnderAttack) playTacticalTone('attack');
-          badge.className = 'mode-indicator attack';
-          badge.style.background = 'rgba(239, 68, 68, 0.28)';
-          badge.style.borderColor = 'rgba(239, 68, 68, 0.9)';
-          badge.style.color = '#fca5a5';
-          alertBanner.style.display = 'flex';
-          alertBanner.style.background = 'rgba(220, 38, 38, 0.95)';
-          alertTxt.innerHTML = `⚠️ <b>DEFENSE OFF (BYPASSED):</b> ${attackLabel} Direct Ingestion into EKF! Drone Veering Off-Course! <span style="text-decoration: underline; cursor: pointer; margin-left: 8px; font-weight:800;" onclick="toggleDefense(true)">[PRESS 'D' TO ENGAGE DEFENSE]</span>`;
-        } else {
-          badge.className = 'mode-indicator';
-          badge.style.background = 'rgba(239, 68, 68, 0.16)';
-          badge.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-          badge.style.color = '#fca5a5';
-          modeTxt.innerText = 'DEFENSE_OFF (UNPROTECTED)';
-          alertBanner.style.display = 'none';
-        }
+        if (!wasUnderAttack) playTacticalTone('attack');
+        badge.className = 'mode-indicator attack';
+        badge.style.background = 'rgba(220, 38, 38, 0.35)';
+        badge.style.borderColor = '#ef4444';
+        badge.style.color = '#fca5a5';
+        modeTxt.innerText = 'DEFENSE_OFF (UNPROTECTED)';
+        alertBanner.style.display = 'flex';
+        alertBanner.style.background = 'linear-gradient(90deg, rgba(153, 27, 27, 0.96), rgba(220, 38, 38, 0.96), rgba(153, 27, 27, 0.96))';
+        alertBanner.style.border = '1px solid rgba(239, 68, 68, 0.9)';
+        alertBanner.style.boxShadow = '0 0 35px rgba(220, 38, 38, 0.9)';
+
+        // Calculate live corridor deviation distance
+        const crossTrackErr = Math.hypot(rawGps[0] - pos[0], rawGps[1] - pos[1]);
+        const devDistStr = crossTrackErr > 0.5 ? `${crossTrackErr.toFixed(1)}m` : '25.0m';
+
+        alertTxt.innerHTML = `⚠️ <strong>DEFENSE: OFF (BYPASSED)</strong> — Contested Electronic Warfare Ingestion: Real GPS Carrier Walk-Off pulling aircraft <b>${devDistStr}</b> off corridor into danger! <button onclick="toggleDefense(true)" style="background:#10b981; color:#fff; border:none; padding:4px 12px; border-radius:14px; font-weight:800; cursor:pointer; margin-left:12px; font-family:'Outfit', sans-serif;">🛡️ ENGAGE DEFENSE (D)</button>`;
       } else {
         // RESILIENT DEFENSE ACTIVE MODE
         if (isUnderActiveAttack) {
@@ -2628,9 +2627,11 @@
           badge.style.color = '';
           alertBanner.style.display = 'flex';
           alertBanner.style.background = 'rgba(16, 185, 129, 0.92)';
+          alertBanner.style.border = '1px solid rgba(16, 185, 129, 0.8)';
+          alertBanner.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.6)';
 
           const isolatedStr = hasIsolatedSensors ? ` • QUARANTINED: [${data.isolated_sensors.join(', ')}]` : '';
-          alertTxt.innerText = `🛡️ CYBER-DEFENSE ACTIVE: ${attackLabel} (NIS: ${nisVal.toFixed(2)})` + isolatedStr + ` • RESILIENCE ACTIVE (STABLE ON COURSE)`;
+          alertTxt.innerHTML = `🛡️ <b>CYBER-DEFENSE ACTIVE:</b> ${attackLabel} (NIS: ${nisVal.toFixed(2)})` + isolatedStr + ` • RESILIENCE ACTIVE (STABLE ON COURSE)`;
         } else if (isDegraded) {
           badge.className = 'mode-indicator';
           badge.style.background = 'rgba(245, 158, 11, 0.2)';
