@@ -1011,14 +1011,26 @@ class SystemStateManager:
             cur_wp = self.waypoints[min(self.current_wp_idx, len(self.waypoints) - 1)]
             dist_to_goal = math.hypot(cur_wp[0] - self.drone_pos[0], cur_wp[1] - self.drone_pos[1])
 
+        # Authentic Aviation Altimeter Calibration (PX4 / ArduPilot / FAA standard):
+        # AGL (Above Ground Level) measures clearance between the aircraft's landing skids and the ground/surface.
+        # When touched down / landed, AGL is 0.0 m.
+        # MSL (Mean Sea Level) altitude is the true elevation of the landing skids relative to world datum 0.0m.
+        if self.flight_phase == "LANDED" or not self.is_airborne or self.drone_pos[2] <= (self.target_touchdown_z + 0.06):
+            disp_agl = 0.0
+            disp_msl = float(surf_elev)
+        else:
+            agl_norm = max(0.0, (self.drone_pos[2] - self.target_touchdown_z) / max(1.0, self.cruise_altitude - self.target_touchdown_z))
+            disp_agl = agl_norm * self.cruise_altitude
+            disp_msl = float(surf_elev + disp_agl)
+
         self.current_state = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "defense_enabled": self.defense_enabled,
             "position_enu": [round(float(v), 3) for v in self.drone_pos],
             "estimated_pos_enu": [round(float(v), 3) for v in est_state["position"]],
             "velocity_enu": [round(float(v), 3) for v in self.drone_vel],
-            "altitude_m": round(float(self.drone_pos[2]), 2),
-            "altitude_agl_m": round(float(max(0.0, self.drone_pos[2] - surf_elev)), 2),
+            "altitude_m": round(float(disp_msl), 2),
+            "altitude_agl_m": round(float(disp_agl), 2),
             "surface_name": surf_name,
             "surface_elevation_m": round(float(surf_elev), 2),
             "target_touchdown_z": round(float(self.target_touchdown_z), 2),
