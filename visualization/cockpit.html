@@ -2698,10 +2698,10 @@
       }
 
       // Update HUD Values
-      const mslAlt = parseFloat(data.altitude_m || pos[2]).toFixed(1);
-      const aglAlt = parseFloat(data.altitude_agl_m !== undefined ? data.altitude_agl_m : (data.altitude_m || pos[2])).toFixed(1);
+      const mslAlt = parseFloat(data.altitude_m !== undefined ? data.altitude_m : pos[2]).toFixed(1);
+      const aglAlt = parseFloat(data.altitude_agl_m !== undefined ? data.altitude_agl_m : (data.altitude_m !== undefined ? data.altitude_m : pos[2])).toFixed(1);
       const surfName = data.surface_name || 'GROUND_TARMAC';
-      const surfElev = parseFloat(data.surface_elevation_m || 0.0).toFixed(1);
+      const surfElev = parseFloat(data.surface_elevation_m !== undefined ? data.surface_elevation_m : 0.0).toFixed(1);
 
       document.getElementById('val-alt').innerText = mslAlt;
       const aglElem = document.getElementById('val-alt-agl');
