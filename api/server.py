@@ -143,6 +143,7 @@ class TelemetryPacket(BaseModel):
     mission_type: Optional[str] = "patrol"
     target_goal: Optional[List[float]] = None
     target_label: Optional[str] = "PERIMETER_PATROL"
+    target_surface_elevation: Optional[float] = 0.0
     distance_to_goal: Optional[float] = 0.0
     planned_waypoints: Optional[List[List[float]]] = None
     flight_phase: Optional[str] = "CRUISE"
@@ -272,6 +273,7 @@ class SystemStateManager:
             "mission_type": "patrol",
             "target_goal": None,
             "target_label": "PERIMETER_PATROL",
+            "target_surface_elevation": 0.0,
             "distance_to_goal": 0.0,
             "planned_waypoints": [[round(float(c), 2) for c in wp] for wp in self.waypoints],
             "flight_phase": self.flight_phase,
@@ -406,13 +408,21 @@ class SystemStateManager:
         self.target_label = label
         self.mission_type = "target_point"
 
-        # Plan trajectory using A* Planner around obstacles
-        start_pt = tuple(float(v) for v in self.drone_pos)
-        goal_pt = tuple(float(v) for v in goal)
+        # If currently landed or landing, automatically initiate smooth takeoff so mission begins seamlessly
+        if self.flight_phase in ["LANDED", "LANDING", "RTL_LAND"] or not self.is_airborne:
+            self.is_airborne = True
+            self.flight_phase = "TAKEOFF"
+
+        # Plan trajectory using A* Planner around obstacles at cruise/transit altitude
+        flight_plan_alt = max(self.cruise_altitude, alt, float(self.drone_pos[2]))
+        start_pt = (float(self.drone_pos[0]), float(self.drone_pos[1]), flight_plan_alt)
+        goal_pt = (float(goal[0]), float(goal[1]), flight_plan_alt)
         planned = self.planner.plan(start_pt, goal_pt)
         if planned and len(planned) > 1:
-            self.waypoints = [np.array(wp, dtype=np.float64) for wp in planned]
-            self.current_wp_idx = 1
+            wps = [np.array(wp, dtype=np.float64) for wp in planned]
+            wps[-1][2] = alt
+            self.waypoints = wps
+            self.current_wp_idx = 0 if (self.flight_phase == "TAKEOFF") else 1
         else:
             self.waypoints = [np.copy(self.drone_pos), goal]
             self.current_wp_idx = 1
@@ -1023,6 +1033,10 @@ class SystemStateManager:
             disp_agl = agl_norm * self.cruise_altitude
             disp_msl = float(surf_elev + disp_agl)
 
+        target_surf_elev = 0.0
+        if self.target_goal is not None:
+            target_surf_elev, _, _ = self.get_surface_profile(float(self.target_goal[0]), float(self.target_goal[1]))
+
         self.current_state = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "defense_enabled": self.defense_enabled,
@@ -1057,6 +1071,7 @@ class SystemStateManager:
             "mission_type": self.mission_type,
             "target_goal": [round(float(v), 2) for v in self.target_goal] if self.target_goal is not None else None,
             "target_label": self.target_label,
+            "target_surface_elevation": round(float(target_surf_elev), 2),
             "distance_to_goal": round(float(dist_to_goal), 2),
             "planned_waypoints": [[round(float(c), 2) for c in wp] for wp in self.waypoints],
             "flight_phase": self.flight_phase,

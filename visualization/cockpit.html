@@ -1473,17 +1473,17 @@
         fogNear: 800,
         fogFar: 3600,
         ambientColor: 0xffffff,
-        ambientIntensity: 1.25,
-        hemiSky: 0xe0f2fe,
-        hemiGround: 0xbbf7d0,
-        hemiIntensity: 1.35,
+        ambientIntensity: 0.45,
+        hemiSky: 0xbae6fd,
+        hemiGround: 0x334155,
+        hemiIntensity: 0.60,
         sunColor: 0xfffbeb,
-        sunIntensity: 2.4,
-        overheadIntensity: 0.95,
+        sunIntensity: 1.25,
+        overheadIntensity: 0.30,
         terrainColor: 0x2e5c38, // Lush natural green airfield grass perimeter
         tarmacColor: 0x334155,  // Slate gray airfield concrete tarmac
         runwayColor: 0x1e293b,  // Dark asphalt runway
-        gridOpacity: 0.40
+        gridOpacity: 0.35
       },
       night: {
         skyColor: 0x060913,
@@ -1491,17 +1491,17 @@
         fogNear: 500,
         fogFar: 3200,
         ambientColor: 0xffffff,
-        ambientIntensity: 0.85,
-        hemiSky: 0xdbeafe,
-        hemiGround: 0x1e293b,
-        hemiIntensity: 1.0,
+        ambientIntensity: 0.35,
+        hemiSky: 0x38bdf8,
+        hemiGround: 0x0b1329,
+        hemiIntensity: 0.45,
         sunColor: 0x7dd3fc,
-        sunIntensity: 1.4,
-        overheadIntensity: 1.1,
+        sunIntensity: 0.70,
+        overheadIntensity: 0.40,
         terrainColor: 0x090f1d,
         tarmacColor: 0x111c30,
         runwayColor: 0x18243b,
-        gridOpacity: 0.65
+        gridOpacity: 0.55
       }
     };
 
@@ -1550,6 +1550,9 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.95;
+    renderer.outputEncoding = THREE.sRGBEncoding;
     container.appendChild(renderer.domElement);
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -1559,15 +1562,15 @@
     controls.maxDistance = 2200;
     controls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't clip ground
 
-    // High-Clarity Radiant Daytime Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.25);
+    // High-Clarity Soft Daylight Lighting (ACES Filmic Balanced)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
     scene.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0xbbf7d0, 1.35);
+    const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x334155, 0.60);
     hemiLight.position.set(0, 300, 0);
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffbeb, 2.4);
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.25);
     sunLight.position.set(200, 450, 150);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
@@ -1580,12 +1583,12 @@
     sunLight.shadow.camera.bottom = -500;
     scene.add(sunLight);
 
-    // Dedicated Overhead Tactical Sun: illuminates top surfaces directly for crystal-clear satellite views
-    const overheadLight = new THREE.DirectionalLight(0xffffff, 0.95);
+    // Dedicated Overhead Tactical Sun: soft fill for crisp contrast
+    const overheadLight = new THREE.DirectionalLight(0xffffff, 0.30);
     overheadLight.position.set(0, 600, 0);
     scene.add(overheadLight);
 
-    const accentLight = new THREE.PointLight(0x38bdf8, 1.4, 320);
+    const accentLight = new THREE.PointLight(0x38bdf8, 1.0, 320);
     accentLight.position.set(40, 60, 40);
     scene.add(accentLight);
 
@@ -1797,8 +1800,12 @@
 
       // Geodesic Radar Dome
       const dome = new THREE.Mesh(
-        new THREE.SphereGeometry(2.2, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.2 })
+        new THREE.SphereGeometry(2.2, 24, 20),
+        new THREE.MeshStandardMaterial({ 
+          color: 0x94a3b8, 
+          roughness: 0.55, 
+          metalness: 0.15 
+        })
       );
       dome.position.set(0, 4.4, 0);
       dome.castShadow = true;
@@ -2291,13 +2298,20 @@
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObject(tarmac);
+      const intersects = raycaster.intersectObjects([tarmac, terrain]);
 
       if (intersects.length > 0) {
         const hit = intersects[0].point;
         // In our scene: X is East, Z is North
         const targetX = Math.round(hit.x * 10) / 10;
         const targetY = Math.round(hit.z * 10) / 10;
+
+        // Immediate optimistic visual placement: reveal beacon instantly
+        destBeaconGroup.position.set(targetX, hit.y, targetY);
+        destBeaconGroup.visible = true;
+        wpPatrolLine.visible = false;
+        patrolHalos.forEach(h => h.visible = false);
+
         sendDestination(targetX, targetY, 12.0, "OPERATOR_TARGET");
         showToast(`🎯 TARGET DISPATCHED: [X: ${targetX}m, Y: ${targetY}m]`);
       }
@@ -2671,10 +2685,13 @@
       document.getElementById('target-dist-val').innerText = `${distToGoal} m`;
 
       if (targetGoal && missionType === "target_point") {
-        const beaconY = parseFloat(data.surface_elevation_m || 0.0);
+        const beaconY = (data.target_surface_elevation !== undefined)
+          ? data.target_surface_elevation
+          : (parseFloat(data.surface_elevation_m) || 0.0);
         destBeaconGroup.position.set(targetGoal[0], beaconY, targetGoal[1]);
-        destBeaconGroup.visible = !isLandedState;
-        document.getElementById('target-coords-txt').innerText = `[${targetGoal[0].toFixed(1)}, ${targetGoal[1].toFixed(1)}, ${targetGoal[2]?.toFixed(1) || 15.0}m]`;
+        destBeaconGroup.visible = true;
+        destReticle.position.y = Math.max(2.0, (targetGoal[2] || 12.0) - beaconY);
+        document.getElementById('target-coords-txt').innerText = `[${targetGoal[0].toFixed(1)}, ${targetGoal[1].toFixed(1)}, ${targetGoal[2]?.toFixed(1) || 12.0}m]`;
         wpPatrolLine.visible = false;
         patrolHalos.forEach(h => h.visible = false);
       } else {
@@ -2685,14 +2702,14 @@
       }
 
       // Dynamic Planned Trajectory Line from A*
-      if (data.planned_waypoints && data.planned_waypoints.length > 0) {
+      if (data.planned_waypoints && data.planned_waypoints.length > 0 && missionType === "target_point") {
         const linePts = [droneGroup.position.clone()];
         data.planned_waypoints.forEach(wp => {
           linePts.push(new THREE.Vector3(wp[0], wp[2], wp[1]));
         });
         dynamicPlanGeo.setFromPoints(linePts);
         dynamicPlanLine.computeLineDistances();
-        dynamicPlanLine.visible = (missionType === "target_point");
+        dynamicPlanLine.visible = true;
       } else {
         dynamicPlanLine.visible = false;
       }

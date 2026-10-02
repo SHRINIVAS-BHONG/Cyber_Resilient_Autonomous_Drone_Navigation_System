@@ -284,7 +284,10 @@ class AStarPlanner:
         if not start_grid or not goal_grid:
             return None
 
-        flight_alt = min(start_pos[2], goal_pos[2])
+        if start_grid == goal_grid:
+            return [start_pos, goal_pos]
+
+        flight_alt = max(start_pos[2], goal_pos[2])
         if self.is_cell_blocked(start_grid[0], start_grid[1], flight_alt) or self.is_cell_blocked(goal_grid[0], goal_grid[1], flight_alt):
             return None
 
