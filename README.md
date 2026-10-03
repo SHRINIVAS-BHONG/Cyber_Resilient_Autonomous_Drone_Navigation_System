@@ -91,6 +91,9 @@ PX4 Offboard Setpoints & Control
 ## 4. Repository Structure
 
 ```text
+├── api/
+│   ├── __init__.py
+│   └── server.py
 ├── config/
 │   ├── sensors.yaml
 │   ├── estimator.yaml
@@ -104,14 +107,20 @@ PX4 Offboard Setpoints & Control
 │       └── communication_disruption.yaml
 ├── docker/
 │   ├── Dockerfile
-│   └── compose.yaml
+│   ├── compose.yaml
+│   └── entrypoint.sh
+├── docs/
+│   ├── Cyber_Resilient_Autonomous_Drone_Navigation_System.docx
+│   └── PROFESSOR_PRESENTATION_GUIDE.md
 ├── ml/
+│   ├── data/
 │   ├── data_generation/
 │   ├── preprocessing/
 │   ├── train_random_forest.py
 │   ├── evaluate.py
 │   └── models/
 ├── reports/
+│   ├── PROFESSOR_DEFENSE_REPORT.md
 │   ├── figures/
 │   └── experiment_results/
 ├── ros2_ws/
@@ -126,24 +135,36 @@ PX4 Offboard Setpoints & Control
 │       ├── sensor_bridge/
 │       ├── state_estimator/
 │       └── telemetry_logger/
+├── scripts/
+│   ├── deploy_system.py
+│   ├── generate_defense_report.py
+│   ├── hud_inspector.py
+│   ├── run_ablation_study.py
+│   └── run_benchmarks.py
 ├── simulation/
 │   ├── launch/
 │   ├── models/
 │   ├── scenarios/
 │   └── worlds/
 ├── tests/
+│   ├── conftest.py
 │   ├── integration/
 │   ├── regression/
 │   ├── scenario/
 │   └── unit/
 ├── visualization/
-│   ├── dashboard.py
-│   ├── plot_telemetry.py
+│   ├── cockpit.html
 │   └── rviz/
+├── .dockerignore
+├── .gitignore
 ├── LICENSE
 ├── pyproject.toml
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+├── run.py
+├── setup_env.bat
+├── START_SYSTEM.bat
+└── start_system.sh
 ```
 
 ---
@@ -158,7 +179,7 @@ PX4 Offboard Setpoints & Control
 6. **Phase 5: Machine Learning Classifier**: Supervised classification of attack fingerprints.
 7. **Phase 6: Resilience & Fail-Safe Manager**: Dynamic sensor isolation, trust weighting, and automatic degraded recovery.
 8. **Phase 7: Cyber-Aware Safe Path Planning**: A* replanning under sensor uncertainty.
-9. **Phase 8: Evaluation & Telemetry Dashboard**: Streamlit / Plotly interactive metrics and scenario comparisons.
+9. **Phase 8: Evaluation & Telemetry Dashboard**: Interactive 3D WebGL Cockpit HUD and telemetry gateway.
 
 ---
 
@@ -166,3 +187,29 @@ PX4 Offboard Setpoints & Control
 - **Detection**: Accuracy, Precision, Recall, F1-Score, False Alarm Rate, Detection Latency.
 - **Resilience**: Time to Detect (TTD), Time to Contain (TTC), Time to Recover (TTR), Safe Trajectory Completion Rate.
 - **Flight Navigation**: Position RMSE, Velocity Drift, Maximum Cross-track Error, Emergency Landing Count.
+
+---
+
+## 7. Documentation & Academic Guides
+- [Academic Defense & Presentation Guide](docs/PROFESSOR_PRESENTATION_GUIDE.md) - Theoretical proofs, benchmark presentation strategy, and oral defense walkthrough.
+- [Comprehensive Defense Report](reports/PROFESSOR_DEFENSE_REPORT.md) - Full benchmarking results across 15 attack scenarios and ablation studies.
+- [System Architecture & Requirements Document](docs/Cyber_Resilient_Autonomous_Drone_Navigation_System.docx) - Complete specification docx.
+
+---
+
+## 8. Quick Start
+To launch the telemetry gateway and 3D Cockpit HUD with 1-click cyber-attack injection:
+```bash
+# Windows
+START_SYSTEM.bat
+# or
+python run.py
+
+# Linux
+./start_system.sh
+```
+To run the automated verification suite:
+```bash
+pytest tests/
+```
+

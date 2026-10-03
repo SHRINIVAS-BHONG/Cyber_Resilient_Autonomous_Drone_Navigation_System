@@ -1,9 +1,11 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -33,9 +35,23 @@ env/
 venv/
 ENV/
 
+# ROS 2 Build & Runtime Artifacts
+install/
+log/
+COLCON_IGNORE
+
 # Large raw external downloads (auto-downloadable via download_real_dataset.py)
 ml/data/real_*.csv
+
+# IDE & Editor Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 
 # OS specific
 .DS_Store
 Thumbs.db
+desktop.ini
+*.tmp

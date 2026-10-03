@@ -6,6 +6,7 @@ real-time 10 Hz multi-sensor attack classification as an independent second-opin
 voter alongside the statistical Chi-square Innovation residual detector.
 """
 
+from __future__ import annotations
 from collections import deque
 import json
 from pathlib import Path
@@ -22,6 +23,14 @@ try:
 except ImportError:
     ROS2_AVAILABLE = False
     Node = object
+    PointStamped = object
+    PoseStamped = object
+    TwistStamped = object
+    Imu = object
+    Range = object
+    AttackStatus = object
+    ResidualTelemetry = object
+    SensorTrust = object
 
 CLASS_NAMES = {
     0: "NORMAL",
