@@ -2,8 +2,7 @@
 Cyber-Resilient Autonomous Drone Navigation System - Deployment Orchestrator.
 
 Production CLI orchestrator for launching and verifying the system across:
-- 'companion': Flight companion computer daemon (EKF, ML Detector, Resilience Manager)
-- 'gcs': Ground Control Station & Cloud Gateway (FastAPI + Streamlit Dashboard)
+- 'gcs': Ground Control Station & Cloud Gateway (FastAPI + Three.js 3D Cockpit)
 - 'verify': Pre-flight hardware and software integrity checks (tests, model, geodesy)
 - 'docker': Containerized deployment via Docker Compose
 """
@@ -14,6 +13,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import webbrowser
 
 root_dir = Path(__file__).resolve().parent.parent
 
@@ -92,25 +92,23 @@ def start_gcs():
     )
 
     time.sleep(1.5)
-    print("[*] Starting Streamlit Interactive Mission Dashboard on port 8501...")
-    dash_proc = subprocess.Popen(
-        [sys.executable, "-m", "streamlit", "run", "visualization/dashboard.py", "--server.port", "8501", "--server.address", "0.0.0.0"],
-        cwd=str(root_dir)
-    )
-
     print("\n[+] GCS Services Running:")
-    print("    - REST API & Swagger Docs: http://localhost:8000/docs")
-    print("    - WebSocket Telemetry:     ws://localhost:8000/ws/telemetry")
-    print("    - Mission Web Dashboard:   http://localhost:8501")
+    print("    - 3D Tactical Flight Cockpit: http://localhost:8000/cockpit")
+    print("    - REST API & Swagger Docs:   http://localhost:8000/docs")
+    print("    - WebSocket Telemetry Stream: ws://localhost:8000/ws/telemetry")
+    print("\n[*] Opening 3D Ground Control Station in your browser...")
+    try:
+        webbrowser.open("http://localhost:8000/cockpit")
+    except Exception:
+        pass
+
     print("\nPress Ctrl+C to terminate all services.\n")
 
     try:
         api_proc.wait()
-        dash_proc.wait()
     except KeyboardInterrupt:
         print("\n[*] Shutting down GCS services...")
         api_proc.terminate()
-        dash_proc.terminate()
 
 
 def start_docker():
@@ -122,10 +120,11 @@ def start_docker():
 def main():
     parser = argparse.ArgumentParser(description="Cyber-Resilient Drone Deployment Orchestrator")
     parser.add_argument(
-        "--profile",
+        "--profile", "--mode",
+        dest="profile",
         choices=["verify", "gcs", "docker"],
         default="verify",
-        help="Deployment profile: 'verify' (pre-flight checks), 'gcs' (FastAPI + Dashboard), 'docker' (containerized stack)"
+        help="Deployment profile: 'verify' (pre-flight checks), 'gcs' (FastAPI + 3D Cockpit), 'docker' (containerized stack)"
     )
     args = parser.parse_args()
 

@@ -1,0 +1,27 @@
+{
+  "scenario_id": "s2_gps_jump",
+  "defense_on": false,
+  "detection": {
+    "time_to_detect_s": null,
+    "false_alarms": 0,
+    "missed_detection": true
+  },
+  "navigation": {
+    "position_rmse_m": 14.506,
+    "max_position_error_m": 28.751,
+    "final_goal_error_m": 0.07,
+    "min_obstacle_clearance_m": 0.0
+  },
+  "resilience": {
+    "time_to_contain_s": null,
+    "time_to_recover_s": null,
+    "time_in_degraded_sec": 0.0,
+    "sensors_rejected": []
+  },
+  "mission": {
+    "completed": false,
+    "collisions": 290,
+    "emergency_landing": false,
+    "status": "FAILED"
+  }
+}

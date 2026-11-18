@@ -1,0 +1,90 @@
+[
+  {
+    "timestamp": 40.5,
+    "event": "SUSPICIOUS_ANOMALY_DETECTED",
+    "state": "SUSPICIOUS",
+    "active_estimator": "main",
+    "details": {
+      "compromised": [
+        "gps"
+      ]
+    }
+  },
+  {
+    "timestamp": 40.7,
+    "event": "ATTACK_CONFIRMED",
+    "state": "ATTACK_CONFIRMED",
+    "active_estimator": "main",
+    "details": {
+      "type": "communication_disruption",
+      "compromised": [
+        "gps"
+      ]
+    }
+  },
+  {
+    "timestamp": 40.7,
+    "event": "CONTAINMENT_INITIATED",
+    "state": "CONTAINMENT",
+    "active_estimator": "main",
+    "details": {
+      "isolating": [
+        "gps"
+      ]
+    }
+  },
+  {
+    "timestamp": 40.7,
+    "event": "SAFE_NAVIGATION_ACTIVE",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "main",
+    "details": {
+      "estimator": "main"
+    }
+  },
+  {
+    "timestamp": 40.7,
+    "event": "GPS_ISOLATED_AND_SWITCHED_TO_TRUSTED",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "trusted",
+    "details": {}
+  },
+  {
+    "timestamp": 40.7,
+    "event": "SAFE_TRAJECTORY_REPLANNED",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "trusted",
+    "details": {
+      "waypoints_count": 2,
+      "max_vel": 1.5
+    }
+  },
+  {
+    "timestamp": 59.8,
+    "event": "RECOVERY_EVALUATION_STARTED",
+    "state": "RECOVERY",
+    "active_estimator": "trusted",
+    "details": {}
+  },
+  {
+    "timestamp": 64.8,
+    "event": "BEGIN_REINTEGRATION_RAMP_GPS",
+    "state": "RECOVERY",
+    "active_estimator": "trusted",
+    "details": {}
+  },
+  {
+    "timestamp": 67.8,
+    "event": "SENSOR_FULLY_REINTEGRATED_GPS",
+    "state": "RECOVERY",
+    "active_estimator": "trusted",
+    "details": {}
+  },
+  {
+    "timestamp": 67.8,
+    "event": "SYSTEM_FULLY_RECOVERED",
+    "state": "RECOVERED",
+    "active_estimator": "main",
+    "details": {}
+  }
+]

@@ -34,13 +34,15 @@ from state_estimator.ekf_10dof import EKF10DOF
 from residual_detector.detector_engine import ResidualDetectorEngine, DetectionState
 from resilience_manager.manager_engine import ResilienceManagerEngine, NavigationMode
 from path_planner.astar_planner import AStarPlanner
+from simulation.environment.wind_turbulence import DrydenWindModel
+from collections import deque
 
 
 # -------------------------------------------------------------
 # Data Models
 # -------------------------------------------------------------
 class AttackInjectionRequest(BaseModel):
-    attack_type: str = Field(..., description="Type of cyber attack: gps_spoofing, imu_manipulation, lidar_corruption, multi_attack")
+    attack_type: str = Field(..., description="Type of cyber attack: gps_spoofing, gps_replay, imu_manipulation, lidar_corruption, multi_attack")
     magnitude: float = Field(..., ge=0.5, le=100.0, description="Severity or bias magnitude (meters or m/s²)")
     duration_sec: float = Field(default=20.0, ge=1.0, le=300.0, description="Duration of attack in seconds")
     target_sensor: Optional[str] = Field(default="gps", description="Target sensor name")
@@ -179,6 +181,8 @@ class SystemStateManager:
         self.detector = ResidualDetectorEngine()
         self.resilience = ResilienceManagerEngine()
         self.planner = AStarPlanner(x_bounds=(-600.0, 600.0), y_bounds=(-600.0, 600.0), grid_resolution=2.0)
+        self.wind_model = DrydenWindModel()
+        self.gps_history_buffer = deque(maxlen=300)
 
         # Physical Drone State
         self.drone_pos = np.array([0.0, 0.0, self.cruise_altitude], dtype=np.float64)
@@ -823,6 +827,13 @@ class SystemStateManager:
 
         # 2. Generate Sensor Streams with Authentic Physical Noise
         true_pos = np.copy(self.drone_pos)
+        self.gps_history_buffer.append(np.copy(true_pos))
+
+        # Atmospheric Dryden Wind Turbulence (Aerodynamic disturbances)
+        if self.is_airborne and self.flight_phase == "CRUISE":
+            wind_data = self.wind_model.step(altitude_m=self.drone_pos[2], drone_velocity_enu=self.drone_vel, dt=dt)
+            self.drone_vel += np.clip(wind_data["aerodynamic_accel_enu"], -1.2, 1.2) * dt
+
         gps_meas = true_pos + np.random.normal(0.0, 0.12, size=(3,))
         gps_vel_meas = self.drone_vel + np.random.normal(0.0, 0.03, size=(3,))
 
@@ -855,7 +866,17 @@ class SystemStateManager:
         if is_attack_active:
             elapsed = max(now - (self.attack_start_time or now), getattr(self, "attack_sim_elapsed", 0.0))
 
-            if "gps" in attack_type:
+            if "replay" in attack_type:
+                # Authentic GPS Replay Attack: replaying delayed valid navigation telemetry
+                lag_steps = max(1, int(4.0 / dt))
+                if len(self.gps_history_buffer) > lag_steps:
+                    replayed_pos = self.gps_history_buffer[-lag_steps]
+                    gps_meas = np.copy(replayed_pos) + np.random.normal(0.0, 0.15, size=(3,))
+                    gps_vel_meas = (self.drone_pos - replayed_pos) / max(4.0, dt) * 0.5
+                else:
+                    gps_meas += np.array([attack_mag, -attack_mag * 0.4, 0.0])
+
+            elif "gps" in attack_type:
                 # Authentic GNSS Carrier & Code Phase Pull-Off (Walk-off Spoofing):
                 # The spoofing transmitter aligns with authentic signal, then progressively walks
                 # the pseudoranges and carrier Doppler cross-track away from the flight corridor.
@@ -1354,7 +1375,7 @@ async def websocket_telemetry_stream(websocket: WebSocket):
             packet = state_manager.get_latest_telemetry()
             await websocket.send_json(packet)
             await asyncio.sleep(0.10)  # 10 Hz broadcast
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError, Exception):
         pass
 
 

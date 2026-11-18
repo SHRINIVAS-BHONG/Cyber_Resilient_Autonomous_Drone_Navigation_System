@@ -115,8 +115,27 @@ class MLDetectorEngine:
         pred_id = int(self.model.predict(scaled)[0])
         probabilities = self.model.predict_proba(scaled)[0]
 
+        # Calculate Normalized Shannon Entropy: H = -sum(p * log2(p)) / log2(C)
+        num_classes = len(probabilities)
+        eps = 1e-12
+        entropy = float(-np.sum([p * np.log2(p + eps) for p in probabilities]) / np.log2(num_classes))
+
+        # Prediction margin: difference between top-1 and top-2 class probabilities
+        sorted_probs = np.sort(probabilities)[::-1]
+        top1_prob = float(sorted_probs[0])
+        top2_prob = float(sorted_probs[1]) if len(sorted_probs) > 1 else 0.0
+        margin = float(top1_prob - top2_prob)
+
+        # Out-of-Distribution (OOD) / Zero-Day uncertainty criteria:
+        # High entropy (>0.82) or low prediction margin (<0.20) or extreme feature deviation
+        is_ood = (entropy > 0.82) or (margin < 0.20 and is_anom) or (is_anom and top1_prob < 0.60)
+
         predicted_class = CLASS_NAMES.get(pred_id, "NORMAL")
-        confidence = float(np.max(probabilities))
+        confidence = top1_prob
+
+        # If anomalous residuals exist but classifier is highly uncertain, flag as UNKNOWN_CYBER_ANOMALY
+        if is_ood and is_anom and predicted_class != "NORMAL":
+            predicted_class = "UNKNOWN_CYBER_ANOMALY"
 
         compromised = []
         if predicted_class == "GPS_SPOOFING":
@@ -125,14 +144,25 @@ class MLDetectorEngine:
             compromised.append("imu")
         elif predicted_class == "LIDAR_CORRUPTION":
             compromised.append("lidar")
+        elif predicted_class == "UNKNOWN_CYBER_ANOMALY":
+            # In zero-day/OOD anomaly, flag highest residual sensor
+            if self.latest_gps_nis > 11.34:
+                compromised.append("gps")
+            if accel_diff > 1.5:
+                compromised.append("imu")
+            if self.latest_lidar_nis > 6.63:
+                compromised.append("lidar")
 
         return {
             "predicted_class": predicted_class,
             "confidence": confidence,
             "is_attack": predicted_class != "NORMAL",
+            "is_ood": is_ood,
+            "entropy": round(entropy, 4),
+            "margin": round(margin, 4),
             "anomaly_score": float(1.0 - probabilities[0]),
             "compromised_sensors": compromised,
-            "probabilities": {CLASS_NAMES[i]: float(probabilities[i]) for i in range(len(probabilities))},
+            "probabilities": {CLASS_NAMES.get(i, f"CLASS_{i}"): float(probabilities[i]) for i in range(len(probabilities))},
         }
 
 

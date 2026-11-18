@@ -2,10 +2,9 @@
 Cyber-Resilient Autonomous Drone Navigation System - Master 1-Click Launcher.
 
 Runs the complete system with one simple command:
-- Starts the FastAPI Telemetry Gateway (port 8000)
-- Starts the Live Telemetry Bridge (feeds real flight telemetry & EKF state)
-- Starts the Streamlit Mission Dashboard (port 8501)
-- Automatically opens the Dashboard in your default web browser
+- Starts the FastAPI Telemetry Gateway & REST/WebSocket Engine (port 8000)
+- Serves the Three.js 3D Tactical Flight Cockpit GCS (http://localhost:8000/cockpit)
+- Automatically opens the 3D Cockpit GCS in your default web browser
 - Provides an interactive terminal command center for 1-key attack injections
 """
 
@@ -128,10 +127,11 @@ def print_menu():
     print("  [4] Run 15-Scenario Benchmark Suite    (Physical, Cyber, Comm Scenarios)")
     print("  [5] Run Architectural Ablation Study   (4 Defense Configurations)")
     print("  [6] Generate Defense Report & Figures  (LaTeX Formulations & 300 DPI Plots)")
-    print("  [7] Run Automated Test Suite           (pytest 35 Unit/Integration Tests)")
+    print("  [7] Run Automated Test Suite           (pytest 56 Unit/Integration Tests)")
     print("-" * 78)
     print("  LIVE CYBER-ATTACK INJECTION CONTROLS:")
     print("  [g] Inject GPS Spoofing Attack         (25m Slow Drift + Step Jump)")
+    print("  [r] Inject GPS Replay Attack           (Delayed Navigation Ephemeris Replay)")
     print("  [i] Inject IMU Bias Manipulation       (+2.5 m/s^2 Accelerometer Tampering)")
     print("  [l] Inject LiDAR Range Corruption      (Altimeter Range Fault)")
     print("  [m] Inject Coordinated Multi-Attack    (Simultaneous GPS + IMU)")
@@ -202,6 +202,8 @@ def main():
             subprocess.run([sys.executable, "-m", "pytest", "tests/", "-v"], cwd=str(root_dir))
         elif choice == "g":
             trigger_attack("gps_spoofing", magnitude=25.0)
+        elif choice == "r":
+            trigger_attack("gps_replay", magnitude=20.0)
         elif choice == "i":
             trigger_attack("imu_manipulation", magnitude=2.5)
         elif choice == "l":

@@ -1,0 +1,27 @@
+{
+  "scenario_id": "s0_normal",
+  "defense_on": true,
+  "detection": {
+    "time_to_detect_s": null,
+    "false_alarms": 0,
+    "missed_detection": false
+  },
+  "navigation": {
+    "position_rmse_m": 0.106,
+    "max_position_error_m": 0.339,
+    "final_goal_error_m": 0.069,
+    "min_obstacle_clearance_m": 6.81
+  },
+  "resilience": {
+    "time_to_contain_s": null,
+    "time_to_recover_s": null,
+    "time_in_degraded_sec": 0.0,
+    "sensors_rejected": []
+  },
+  "mission": {
+    "completed": true,
+    "collisions": 0,
+    "emergency_landing": false,
+    "status": "SUCCESS"
+  }
+}

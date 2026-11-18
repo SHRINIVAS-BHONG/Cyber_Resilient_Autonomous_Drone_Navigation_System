@@ -1,0 +1,79 @@
+[
+  {
+    "timestamp": 30.2,
+    "event": "SUSPICIOUS_ANOMALY_DETECTED",
+    "state": "SUSPICIOUS",
+    "active_estimator": "main",
+    "details": {
+      "compromised": [
+        "gps"
+      ]
+    }
+  },
+  {
+    "timestamp": 30.4,
+    "event": "ATTACK_CONFIRMED",
+    "state": "ATTACK_CONFIRMED",
+    "active_estimator": "main",
+    "details": {
+      "type": "gps_jump",
+      "compromised": [
+        "gps"
+      ]
+    }
+  },
+  {
+    "timestamp": 30.4,
+    "event": "CONTAINMENT_INITIATED",
+    "state": "CONTAINMENT",
+    "active_estimator": "main",
+    "details": {
+      "isolating": [
+        "gps"
+      ]
+    }
+  },
+  {
+    "timestamp": 30.4,
+    "event": "SAFE_NAVIGATION_ACTIVE",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "main",
+    "details": {
+      "estimator": "main"
+    }
+  },
+  {
+    "timestamp": 30.4,
+    "event": "GPS_ISOLATED_AND_SWITCHED_TO_TRUSTED",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "trusted",
+    "details": {}
+  },
+  {
+    "timestamp": 30.4,
+    "event": "SAFE_TRAJECTORY_REPLANNED",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "trusted",
+    "details": {
+      "waypoints_count": 2,
+      "max_vel": 1.5
+    }
+  },
+  {
+    "timestamp": 31.1,
+    "event": "IMU_REJECTED_VISION_LIDAR_FALLBACK",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "trusted",
+    "details": {}
+  },
+  {
+    "timestamp": 31.1,
+    "event": "SAFE_TRAJECTORY_REPLANNED",
+    "state": "SAFE_NAVIGATION",
+    "active_estimator": "trusted",
+    "details": {
+      "waypoints_count": 2,
+      "max_vel": 1.5
+    }
+  }
+]
