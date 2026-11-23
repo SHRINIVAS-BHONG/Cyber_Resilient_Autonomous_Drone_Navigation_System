@@ -1,0 +1,17 @@
+scenario,defense,seed,status,ttd_sec,contain_sec,rmse_m,max_err_m,final_err_m,collisions
+s0_normal,OFF,42,SUCCESS,,,0.103,0.502,0.025,0
+s0_normal,OFF,101,SUCCESS,,,0.106,0.339,0.069,0
+s0_normal,ON,42,SUCCESS,,,0.103,0.502,0.025,0
+s0_normal,ON,101,SUCCESS,,,0.106,0.339,0.069,0
+s1_gps_drift,OFF,42,SUCCESS,,,8.244,17.453,0.026,0
+s1_gps_drift,OFF,101,SUCCESS,,,8.248,17.483,0.07,0
+s1_gps_drift,ON,42,SUCCESS,0.4,0.0,1.09,2.072,1.863,0
+s1_gps_drift,ON,101,SUCCESS,0.4,0.0,1.391,2.76,2.352,0
+s2_gps_jump,OFF,42,FAILED,,,14.516,28.751,0.024,283
+s2_gps_jump,OFF,101,FAILED,,,14.506,28.751,0.07,290
+s2_gps_jump,ON,42,SUCCESS,0.4,0.0,1.024,8.389,1.462,0
+s2_gps_jump,ON,101,SUCCESS,0.4,0.0,1.097,8.455,1.678,0
+s5_comm_disrupt,OFF,42,SUCCESS,,,0.364,1.422,0.026,0
+s5_comm_disrupt,OFF,101,SUCCESS,,,0.352,1.313,0.069,0
+s5_comm_disrupt,ON,42,SUCCESS,10.7,0.0,0.668,1.417,0.022,0
+s5_comm_disrupt,ON,101,SUCCESS,10.7,0.0,0.668,1.397,0.064,0

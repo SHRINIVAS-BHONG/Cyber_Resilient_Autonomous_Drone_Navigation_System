@@ -1,0 +1,27 @@
+{
+  "scenario_id": "s1_gps_drift",
+  "defense_on": false,
+  "detection": {
+    "time_to_detect_s": null,
+    "false_alarms": 0,
+    "missed_detection": true
+  },
+  "navigation": {
+    "position_rmse_m": 8.244,
+    "max_position_error_m": 17.453,
+    "final_goal_error_m": 0.026,
+    "min_obstacle_clearance_m": 6.88
+  },
+  "resilience": {
+    "time_to_contain_s": null,
+    "time_to_recover_s": null,
+    "time_in_degraded_sec": 0.0,
+    "sensors_rejected": []
+  },
+  "mission": {
+    "completed": true,
+    "collisions": 0,
+    "emergency_landing": false,
+    "status": "SUCCESS"
+  }
+}

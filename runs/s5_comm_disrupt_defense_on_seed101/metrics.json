@@ -1,0 +1,29 @@
+{
+  "scenario_id": "s5_comm_disrupt",
+  "defense_on": true,
+  "detection": {
+    "time_to_detect_s": 10.7,
+    "false_alarms": 0,
+    "missed_detection": false
+  },
+  "navigation": {
+    "position_rmse_m": 0.668,
+    "max_position_error_m": 1.397,
+    "final_goal_error_m": 0.064,
+    "min_obstacle_clearance_m": 6.81
+  },
+  "resilience": {
+    "time_to_contain_s": 0.0,
+    "time_to_recover_s": 17.8,
+    "time_in_degraded_sec": 27.3,
+    "sensors_rejected": [
+      "gps"
+    ]
+  },
+  "mission": {
+    "completed": true,
+    "collisions": 0,
+    "emergency_landing": false,
+    "status": "SUCCESS"
+  }
+}

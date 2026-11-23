@@ -1,0 +1,210 @@
+defense_on: true
+detector:
+  hysteresis:
+    confirm_n: 5
+    high_threshold: 0.75
+    low_threshold: 0.25
+  rate_hz: 10.0
+  thresholds:
+    gps_mahalanobis_dist: 4.5
+    gps_nis_chi2_99: 11.345
+    imu_vision_vel_divergence: 0.8
+    lidar_baro_alt_diff: 1.5
+    watchdog_max_age_sec: 0.3
+    watchdog_rate_drop_fraction: 0.7
+  window_sizes:
+    gps_window_sec: 2.0
+    rate_window_sec: 1.0
+estimator:
+  filters:
+    main:
+      use_baro: true
+      use_gps: true
+      use_imu: true
+      use_lidar: true
+      use_vision: true
+    trusted:
+      use_baro: true
+      use_gps: false
+      use_imu: true
+      use_lidar: true
+      use_vision: true
+  initial_covariance:
+    acc_bias: 0.1
+    pos: 1.0
+    vel: 0.5
+    yaw: 0.1
+  measurement_noise:
+    baro_alt: 0.3
+    gps_pos: 0.5
+    gps_vel: 0.1
+    lidar_alt: 0.05
+    vision_pos: 0.15
+  process_noise:
+    acc_bias: 0.001
+    pos: 0.01
+    vel: 0.1
+    yaw: 0.005
+  rate_hz: 50.0
+  state_dimension: 10
+planner:
+  cost_weights:
+    cyber_risk: 4.0
+    distance: 1.0
+    obstacle_proximity: 3.0
+    uncertainty: 2.0
+  default_obstacles:
+  - height: 15.0
+    radius: 3.0
+    x: 20.0
+    y: 15.0
+  - height: 15.0
+    radius: 4.0
+    x: 35.0
+    y: 22.0
+  - height: 15.0
+    radius: 3.5
+    x: 48.0
+    y: 32.0
+  - height: 15.0
+    radius: 3.0
+    x: 28.0
+    y: 38.0
+  - height: 15.0
+    radius: 2.5
+    x: 10.0
+    y: 25.0
+  grid:
+    resolution: 1.0
+    x_max: 90.0
+    x_min: -10.0
+    y_max: 70.0
+    y_min: -10.0
+  inflation:
+    attack_m: 3.5
+    normal_m: 2.0
+  mission:
+    goal_point:
+    - 60.0
+    - 40.0
+    - 10.0
+    landing_zone:
+    - 62.0
+    - 38.0
+    - 0.0
+    nominal_waypoints:
+    - - 15.0
+      - 8.0
+      - 10.0
+    - - 30.0
+      - 18.0
+      - 10.0
+    - - 45.0
+      - 30.0
+      - 10.0
+    - - 60.0
+      - 40.0
+      - 10.0
+    start_point:
+    - 0.0
+    - 0.0
+    - 10.0
+    takeoff_altitude: 10.0
+  restricted_zones:
+  - max_x: 35.0
+    max_y: 35.0
+    min_x: 25.0
+    min_y: 20.0
+    name: restricted_zone_1
+  speed_limits:
+    degraded_mps: 1.5
+    nominal_mps: 3.0
+resilience:
+  containment:
+    covariance_inflation_factor: 10.0
+    max_compromised_sensors_before_abort: 2
+    min_estimator_confidence: 0.35
+    reintegration_dwell_sec: 5.0
+    reintegration_ramp_sec: 3.0
+  rate_hz: 10.0
+  safe_landing_zone:
+    x: 62.0
+    y: 38.0
+    z: 0.0
+  states:
+  - NORMAL
+  - SUSPICIOUS
+  - ATTACK_CONFIRMED
+  - CONTAINMENT
+  - SAFE_NAVIGATION
+  - RECOVERY
+  - RECOVERED
+  trust_decay:
+    attack_penalty: 0.5
+    recovery_reward_per_sec: 0.2
+    suspicious_penalty: 0.15
+scenario:
+  attack:
+    enabled: false
+    type: none
+  description: Clean flight with nominal sensor noise and no cyberattacks.
+  expect:
+    detected_within_s: null
+    isolated: []
+    max_acceptable_error_m: 1.5
+    mode: normal_navigation
+  id: s0_normal
+  mission:
+    goal_point:
+    - 60.0
+    - 40.0
+    - 10.0
+    start_point:
+    - 0.0
+    - 0.0
+    - 10.0
+    takeoff_altitude: 10.0
+    waypoints:
+    - - 15.0
+      - 8.0
+      - 10.0
+    - - 30.0
+      - 18.0
+      - 10.0
+    - - 45.0
+      - 30.0
+      - 10.0
+    - - 60.0
+      - 40.0
+      - 10.0
+  mission_duration_sec: 75.0
+  name: 'S0: Baseline Flight'
+  seed: 42
+seed: 42
+sensors:
+  barometer:
+    altitude_noise_sigma: 0.3
+    rate_hz: 20.0
+  gps:
+    altitude_noise_sigma: 0.8
+    position_noise_sigma: 0.5
+    rate_hz: 10.0
+    velocity_noise_sigma: 0.1
+  imu:
+    accel_bias_constant:
+    - 0.02
+    - -0.01
+    - 0.01
+    accel_noise_sigma: 0.05
+    gyro_noise_sigma: 0.01
+    rate_hz: 100.0
+  lidar:
+    beam_count: 360
+    noise_sigma: 0.03
+    range_max: 30.0
+    range_min: 0.2
+    rate_hz: 10.0
+  vision:
+    drift_rate_per_sec: 0.02
+    position_noise_sigma: 0.1
+    rate_hz: 20.0

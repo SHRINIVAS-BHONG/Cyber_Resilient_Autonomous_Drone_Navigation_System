@@ -1384,13 +1384,11 @@
 
         <div class="popover-grid">
           <button class="dock-btn dock-btn-attack" onclick="triggerAttack('gps_spoofing', 25.0); closeAllPopovers();">🛰️ GPS Spoof (+25m)</button>
+          <button class="dock-btn dock-btn-attack" onclick="triggerAttack('gps_replay', 20.0); closeAllPopovers();">🔄 GPS Replay (+4s Lag)</button>
           <button class="dock-btn dock-btn-attack" onclick="triggerAttack('imu_manipulation', 2.5); closeAllPopovers();">🎯 IMU Bias (+2.5 m/s²)</button>
           <button class="dock-btn dock-btn-attack" onclick="triggerAttack('lidar_corruption', 7.0); closeAllPopovers();">📏 LiDAR Tamper (+7m)</button>
-          <button class="dock-btn dock-btn-attack" onclick="triggerAttack('multi_attack', 20.0); closeAllPopovers();">⚔️ Coordinated Multi-Vector</button>
+          <button class="dock-btn dock-btn-attack" style="grid-column: span 2; justify-content: center; text-align: center;" onclick="triggerAttack('multi_attack', 20.0); closeAllPopovers();">⚔️ Coordinated Multi-Vector</button>
         </div>
-        <button class="dock-btn dock-btn-flight" style="width: 100%; margin-top: 8px; justify-content: center;" onclick="clearAttacks(); closeAllPopovers();">
-          🛡️ Clear Injections & Restore Nominal
-        </button>
       </div>
 
       <!-- Popover: Swift Camera Views -->
@@ -1437,6 +1435,7 @@
 
         <!-- Cyber Injections Popover Trigger -->
         <button class="dock-btn dock-btn-attack" id="btn-dock-cyber" onclick="toggleDockPopover('cyber-popover')" title="Inject Cyber Attacks">⚡ Attack Sim ▾</button>
+        <button class="dock-btn dock-btn-flight" id="btn-dock-clear" onclick="clearAttacks()" title="Clear All Cyber Attacks and Restore Nominal Flight (Key: 0 / C)" style="border-color: rgba(16, 185, 129, 0.5); color: #34d399;">🛡️ Clear Attacks</button>
 
         <div class="dock-divider"></div>
 
@@ -2966,18 +2965,21 @@
           body: JSON.stringify({
             attack_type: type,
             magnitude: mag,
-            duration_sec: 25.0,
-            target_sensor: type.includes('gps') ? 'gps' : 'imu'
+            duration_sec: 120.0,
+            target_sensor: (type.includes('gps') || type.includes('replay')) ? 'gps' : 'imu'
           })
         });
+        showMissionAlert(`CYBER ATTACK INJECTED: ${type.toUpperCase()}`, "attack");
       } catch (e) {
         console.error("Attack trigger error:", e);
       }
     }
 
     async function clearAttacks() {
+      playTacticalTone('click');
       try {
         await fetch('/attack/clear', { method: 'POST' });
+        showMissionAlert("ALL ATTACKS CLEARED - RESTORING NOMINAL FLIGHT", "normal");
       } catch (e) {
         console.error("Attack clear error:", e);
       }
@@ -3420,11 +3422,19 @@
         const modes = ['track', 'goal', 'orbit', 'chase', 'fpv', 'top'];
         const nextIdx = (modes.indexOf(currentCamMode) + 1) % modes.length;
         setCameraMode(modes[nextIdx]);
-      } else if (e.key === '3') triggerAttack('gps_spoofing', 25.0);
-      else if (e.key === '4') triggerAttack('imu_manipulation', 2.5);
-      else if (e.key === '5') triggerAttack('lidar_corruption', 7.0);
-      else if (e.key === '6') triggerAttack('multi_attack', 20.0);
-      else if (e.key === '0') clearAttacks();
+      } else if (e.key === '3' || e.key === 'g' || e.key === 'G') {
+        triggerAttack('gps_spoofing', 25.0);
+      } else if (e.key === 'r' || e.key === 'R') {
+        triggerAttack('gps_replay', 20.0);
+      } else if (e.key === '4' || e.key === 'i' || e.key === 'I') {
+        triggerAttack('imu_manipulation', 2.5);
+      } else if (e.key === '5' || e.key === 'l' || e.key === 'L') {
+        triggerAttack('lidar_corruption', 7.0);
+      } else if (e.key === '6' || e.key === 'm' || e.key === 'M') {
+        triggerAttack('multi_attack', 20.0);
+      } else if (e.key === '0' || e.key === 'c' || e.key === 'C') {
+        clearAttacks();
+      }
     });
 
     // -------------------------------------------------------------

@@ -83,6 +83,22 @@ def test_attack_injection_and_clear(client):
     assert clear_resp.json()["status"] == "ATTACK_CLEARED"
 
 
+def test_attack_injection_gps_replay(client):
+    attack_payload = {
+        "attack_type": "gps_replay",
+        "magnitude": 20.0,
+        "duration_sec": 15.0,
+        "target_sensor": "gps"
+    }
+    response = client.post("/attack/inject", json=attack_payload)
+    assert response.status_code == 202
+    assert response.json()["status"] == "ATTACK_INJECTED"
+
+    clear_resp = client.post("/attack/clear")
+    assert clear_resp.status_code == 200
+    assert clear_resp.json()["status"] == "ATTACK_CLEARED"
+
+
 def test_ml_metrics_endpoint(client):
     response = client.get("/ml/metrics")
     assert response.status_code == 200
