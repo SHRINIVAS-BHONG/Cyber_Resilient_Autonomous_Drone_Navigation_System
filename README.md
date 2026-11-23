@@ -20,7 +20,7 @@
    - [Machine Learning Classifier Performance](#32-machine-learning-classifier-performance)
    - [Architectural Ablation Study (4 Configurations)](#33-architectural-ablation-study-4-configurations)
    - [Embedded Companion Computer Real-Time Feasibility](#34-embedded-companion-computer-real-time-feasibility)
-   - [Automated Test Suite Verification (43/43 Passing)](#35-automated-test-suite-verification-4343-passing)
+   - [Automated Test Suite Verification (57/57 Passing)](#35-automated-test-suite-verification-5757-passing)
 4. [System Architecture & Data Flow](#4-system-architecture--data-flow)
 5. [Mathematical Formulations & Algorithmic Foundations](#5-mathematical-formulations--algorithmic-foundations)
 6. [Repository Structure](#6-repository-structure)
@@ -149,26 +149,26 @@ Computational complexity profiled for resource-constrained companion computers (
 
 ---
 
-### 3.5 Automated Test Suite Verification (56/56 Passing)
+### 3.5 Automated Test Suite Verification (57/57 Passing)
 
-The repository includes a comprehensive 56-test automated verification suite (`pytest tests/`):
+The repository includes a comprehensive 57-test automated verification suite (`pytest tests/`):
 - **Unit Tests (44 tests)**: 10-DOF EKF & 16-State Quaternion ESKF strapdown numerical stability, Joseph Riccati covariance positivity, $\chi^2$ NIS hypothesis bounds, ML feature scaling, Out-of-Distribution (OOD) entropy & uncertainty estimation, Dryden wind turbulence modeling, continuous trust decay equations, flight log replaying, A* heuristic admissibility, geodesy coordinate conversions, and live defense toggle logic.
-- **Integration Tests (7 tests)**: FastAPI REST endpoints, WebSocket telemetry streaming, attack injection and clear cycles, benchmark summary serialization.
+- **Integration Tests (8 tests)**: FastAPI REST endpoints, WebSocket telemetry streaming, attack injection (GPS Spoofing, GPS Replay/Relay, IMU manipulation, LiDAR corruption, multi-vector) and clear cycles, benchmark summary serialization.
 - **Scenario Tests (5 tests)**: End-to-end flight trajectories under GPS step jumps, slow stealthy drift, and sensor tampering.
 
 ```text
 ============================= test session starts =============================
 platform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0
-collected 56 items
+collected 57 items
 
-tests\integration\test_api_server.py .......                             [ 12%]
-tests\integration\test_pipeline_integration.py ...                       [ 17%]
-tests\scenario\test_scenarios.py .....                                   [ 26%]
-tests\unit\test_defense_toggle.py ........                               [ 41%]
-tests\unit\test_detector.py ...                                          [ 46%]
-tests\unit\test_ekf.py ....                                              [ 53%]
-tests\unit\test_eskf_16state.py .....                                    [ 62%]
-tests\unit\test_flight_replay.py ...                                     [ 67%]
+tests\integration\test_api_server.py ........                            [ 14%]
+tests\integration\test_pipeline_integration.py ...                       [ 19%]
+tests\scenario\test_scenarios.py .....                                   [ 28%]
+tests\unit\test_defense_toggle.py ........                               [ 42%]
+tests\unit\test_detector.py ...                                          [ 47%]
+tests\unit\test_ekf.py ....                                              [ 54%]
+tests\unit\test_eskf_16state.py .....                                    [ 63%]
+tests\unit\test_flight_replay.py ...                                     [ 68%]
 tests\unit\test_geodesy.py ..                                            [ 71%]
 tests\unit\test_ml_detector.py ....                                      [ 78%]
 tests\unit\test_ml_uncertainty_ood.py ..                                 [ 82%]
@@ -176,7 +176,7 @@ tests\unit\test_planner.py ...                                           [ 87%]
 tests\unit\test_resilience.py ....                                       [ 94%]
 tests\unit\test_wind_turbulence.py ...                                   [100%]
 
-============================= 56 passed in 41.81s =============================
+============================= 57 passed in 21.62s =============================
 ```
 
 ---
@@ -449,7 +449,7 @@ When running `python run.py`, inject attacks instantly with single keystrokes:
 ### Step 5: Run Scientific Verification Suites
 
 ```bash
-# Run the complete 43-test automated test suite
+# Run the complete 57-test automated test suite
 pytest tests/ -v
 
 # Run the standardized benchmark suite

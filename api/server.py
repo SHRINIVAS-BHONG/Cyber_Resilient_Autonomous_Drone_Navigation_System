@@ -44,7 +44,7 @@ from collections import deque
 class AttackInjectionRequest(BaseModel):
     attack_type: str = Field(..., description="Type of cyber attack: gps_spoofing, gps_replay, imu_manipulation, lidar_corruption, multi_attack")
     magnitude: float = Field(..., ge=0.5, le=100.0, description="Severity or bias magnitude (meters or m/s²)")
-    duration_sec: float = Field(default=20.0, ge=1.0, le=300.0, description="Duration of attack in seconds")
+    duration_sec: float = Field(default=120.0, ge=1.0, le=600.0, description="Duration of attack in seconds")
     target_sensor: Optional[str] = Field(default="gps", description="Target sensor name")
 
 
@@ -523,7 +523,9 @@ class SystemStateManager:
                 self.attack_sim_elapsed = 0.0
             self.attack_sim_elapsed += dt
             elapsed = max(now - (self.attack_start_time or now), self.attack_sim_elapsed)
-            if elapsed < self.active_attack.get("duration_sec", 25.0):
+            attack_dur = float(self.active_attack.get("duration_sec", 120.0))
+            # When defense is OFF, attack persists indefinitely until explicitly cleared
+            if (not self.defense_enabled) or (elapsed < attack_dur):
                 is_attack_active = True
                 attack_type = self.active_attack.get("attack_type", "gps_spoofing")
                 attack_mag = float(self.active_attack.get("magnitude", 25.0))
@@ -682,11 +684,13 @@ class SystemStateManager:
                 target_alt = float(target_wp[2]) if len(target_wp) > 2 else self.cruise_altitude
 
                 # Autonomous altitude control: uses nav_pos (the state estimated by EKF)
-                alt_diff = target_alt - nav_pos[2]
-                target_climb = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
-                climb_accel = (target_climb - self.drone_vel[2]) / 0.35
-                self.drone_vel[2] += np.clip(climb_accel, -4.0, 4.0) * dt
-                self.drone_pos[2] += self.drone_vel[2] * dt
+                is_lidar_attacked_unprotected = (not self.defense_enabled) and is_attack_active and ("lidar" in attack_type or "multi" in attack_type)
+                if not is_lidar_attacked_unprotected:
+                    alt_diff = target_alt - nav_pos[2]
+                    target_climb = float(np.clip(alt_diff * 2.0, -self.descent_speed, self.climb_speed))
+                    climb_accel = (target_climb - self.drone_vel[2]) / 0.35
+                    self.drone_vel[2] += np.clip(climb_accel, -4.0, 4.0) * dt
+                    self.drone_pos[2] += self.drone_vel[2] * dt
 
                 # Autonomous waypoint guidance: computes error between target waypoint and estimated position
                 diff_xy = target_wp[:2] - nav_pos[:2]
@@ -696,7 +700,8 @@ class SystemStateManager:
                 # Autopilot waypoint arrival check: uses nav_pos (what the autopilot believes)
                 nav_dist_to_wp = math.hypot(target_wp[0] - nav_pos[0], target_wp[1] - nav_pos[1])
                 is_final_wp = (self.current_wp_idx >= len(self.waypoints) - 1)
-                if nav_dist_to_wp < 1.8:
+                can_advance_wp = self.defense_enabled or (not is_attack_active)
+                if nav_dist_to_wp < 1.8 and can_advance_wp:
                     if self.mission_type == "target_point" and is_final_wp:
                         # Precision hover at target goal coordinate
                         self.drone_vel[:2] *= 0.85
@@ -732,7 +737,36 @@ class SystemStateManager:
         if is_attack_active and (not self.defense_enabled) and self.is_airborne and self.flight_phase not in ["LANDED"]:
             elapsed = max(now - (self.attack_start_time or now), getattr(self, "attack_sim_elapsed", 0.0))
 
-            if "imu" in attack_type:
+            if "replay" in attack_type:
+                # Authentic GPS Replay Attack (Defense: OFF):
+                # Stale replayed position tricks navigation into an uncorrected feedback loop,
+                # physically pulling the aircraft off course in a continuous diverging arc
+                replay_drift_ax = -3.2 * math.cos(0.4 * elapsed)
+                replay_drift_ay = +3.5 * math.sin(0.4 * elapsed)
+                self.drone_vel[0] += replay_drift_ax * dt
+                self.drone_vel[1] += replay_drift_ay * dt
+                self.drone_pos[:2] += self.drone_vel[:2] * dt
+                self.yaw_deg = float((self.yaw_deg + 15.0 * dt) % 360)
+
+            elif "gps" in attack_type:
+                # Authentic GPS Spoofing Pull-off (Defense: OFF):
+                # Unprotected autopilot integrates false coordinates, actively steering the real aircraft
+                # away from the flight corridor into persistent unmitigated breakaway
+                curr_wp = self.waypoints[self.current_wp_idx]
+                prev_wp = self.waypoints[(self.current_wp_idx - 1) % len(self.waypoints)]
+                corridor_vec = curr_wp[:2] - prev_wp[:2]
+                corridor_len = math.hypot(corridor_vec[0], corridor_vec[1])
+                drift_unit_xy = np.array([-corridor_vec[1], corridor_vec[0]]) / (corridor_len + 1e-6)
+
+                gps_pull_ax = drift_unit_xy[0] * 3.8
+                gps_pull_ay = drift_unit_xy[1] * 3.8
+                self.drone_vel[0] += gps_pull_ax * dt
+                self.drone_vel[1] += gps_pull_ay * dt
+                self.drone_pos[:2] += self.drone_vel[:2] * dt
+                self.roll_deg += math.sin(2.0 * elapsed) * 6.0 * min(1.0, 8.0 * dt)
+                self.pitch_deg += math.cos(1.5 * elapsed) * 5.0 * min(1.0, 8.0 * dt)
+
+            elif "imu" in attack_type:
                 # Real MEMS accelerometer bias & acoustic resonance:
                 # Autopilot integrates false phantom acceleration, commanding reverse tilt
                 # that physically accelerates the drone sideways/backwards off course at >2.5 m/s^2
@@ -867,14 +901,16 @@ class SystemStateManager:
             elapsed = max(now - (self.attack_start_time or now), getattr(self, "attack_sim_elapsed", 0.0))
 
             if "replay" in attack_type:
-                # Authentic GPS Replay Attack: replaying delayed valid navigation telemetry
+                # Authentic GPS Replay Attack: replaying delayed valid navigation telemetry with meaconing offset
                 lag_steps = max(1, int(4.0 / dt))
+                replay_offset = np.array([-attack_mag * 0.75, -attack_mag * 0.55, 0.0], dtype=np.float64)
                 if len(self.gps_history_buffer) > lag_steps:
-                    replayed_pos = self.gps_history_buffer[-lag_steps]
+                    replayed_pos = self.gps_history_buffer[-lag_steps] + replay_offset
                     gps_meas = np.copy(replayed_pos) + np.random.normal(0.0, 0.15, size=(3,))
                     gps_vel_meas = (self.drone_pos - replayed_pos) / max(4.0, dt) * 0.5
                 else:
-                    gps_meas += np.array([attack_mag, -attack_mag * 0.4, 0.0])
+                    gps_meas += replay_offset + np.random.normal(0.0, 0.15, size=(3,))
+                    gps_vel_meas += np.array([-1.5, 1.0, 0.0])
 
             elif "gps" in attack_type:
                 # Authentic GNSS Carrier & Code Phase Pull-Off (Walk-off Spoofing):
@@ -996,7 +1032,10 @@ class SystemStateManager:
         ml_label = "NORMAL"
         ml_confidence = 0.99
         if is_attack_active:
-            if "gps" in attack_type:
+            if "replay" in attack_type:
+                ml_label = "GPS_REPLAY"
+                ml_confidence = 0.997
+            elif "gps" in attack_type:
                 ml_label = "GPS_SPOOFING"
                 ml_confidence = 0.998
             elif "imu" in attack_type:
@@ -1263,15 +1302,19 @@ def get_ml_metrics():
 
 @app.post("/attack/inject", status_code=status.HTTP_202_ACCEPTED, tags=["Cyber Attack Injection"])
 def inject_attack(req: AttackInjectionRequest):
-    valid_attacks = ["gps_spoofing", "imu_manipulation", "lidar_corruption", "multi_attack"]
+    valid_attacks = ["gps_spoofing", "gps_replay", "gps_relay", "imu_manipulation", "lidar_corruption", "multi_attack"]
     if req.attack_type.lower() not in valid_attacks:
         raise HTTPException(status_code=400, detail=f"Invalid attack type. Must be one of: {valid_attacks}")
 
-    state_manager.active_attack = req.model_dump()
+    dumped = req.model_dump()
+    if dumped["attack_type"].lower() == "gps_relay":
+        dumped["attack_type"] = "gps_replay"
+    state_manager.active_attack = dumped
     state_manager.attack_start_time = time.time()
+    state_manager.attack_sim_elapsed = 0.0
     return {
         "status": "ATTACK_INJECTED",
-        "attack_details": req.model_dump(),
+        "attack_details": dumped,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
